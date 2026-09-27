@@ -675,7 +675,7 @@ function connect(){
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
     HOOKS.msg.forEach(h => { if (h.type === m.type || h.type === '*') try { h.fn(m); } catch (e) { console.error(e); } });
-    if (m.type === 'state'){ S = m.state; S.rules = S.rules || []; gbrainOn = !!m.gbrain; if (m.qm !== undefined) QM_ON = !!m.qm; if (m.me) { ME = m.me; boss.shirt = ME.id === 'bill' ? '#2F8F6A' : C.velvet; } if (m.bosses) setBosses(m.bosses); if (m.wall) PAGES = m.wall; if (m.graph) setGraph(m.graph); if (m.defaults) defaults = m.defaults; sync(); if (brainOpen) renderBrain(); renderServices(); }
+    if (m.type === 'state'){ S = m.state; S.rules = S.rules || []; gbrainOn = !!m.gbrain; if (m.qm !== undefined) QM_ON = !!m.qm; if (m.me) { ME = m.me; boss.shirt = ME.id === 'bill' ? '#1F9E97' : C.velvet; } if (m.bosses) setBosses(m.bosses); if (m.wall) PAGES = m.wall; if (m.graph) setGraph(m.graph); if (m.defaults) defaults = m.defaults; sync(); if (brainOpen) renderBrain(); renderServices(); }
     else if (m.type === 'taught'){ showPin(m); brainChat.push({who:'sys', text:`Taught to everyone${m.reached ? `, and ${m.reached} working now` : ''}.`}); if (brainOpen) renderBrain(); }
     else if (m.type === 'presence'){ setBosses(m.bosses); if (m.joined && m.joined.id !== ME.id) { toast(`${m.joined.name} joined the studio`); joinFx(m.joined); } }
     else if (m.type === 'recall'){ recallBeam(m.id, m.slugs); const sp = sprites.get(m.id); if (sp && performance.now() - sp.lastSay > 1500){ sp.lastSay = performance.now(); say(sp, 'Reading the brain…', 1.8); } }
@@ -790,7 +790,7 @@ function transcriptHtml(w){
       continue;
     }
     const time = `<time>${hm(m.at)}</time>`;
-    if (m.role === 'boss') out.push(`<div class="msg boss">${m.by ? `<span class="by" style="color:${m.by.startsWith('Bill') ? '#2F8F6A' : '#9A6B00'}">${esc(m.by)}</span>` : ''}${m.text ? md(m.text) : ''}${mediaHtml(m.media)}${time}</div>`);
+    if (m.role === 'boss') out.push(`<div class="msg boss">${m.by ? `<span class="by" style="color:${m.by.startsWith('Bill') ? '#1F9E97' : '#9A6B00'}">${esc(m.by)}</span>` : ''}${m.text ? md(m.text) : ''}${mediaHtml(m.media)}${time}</div>`);
     else if (m.role === 'agent') out.push(`<div class="msg agent">${m.text ? md(m.text) : ''}${mediaHtml(m.media)}${linksHtml(m.links)}${time}</div>`);
     else if (m.role === 'question'){
       const open = m === lastQ && w.phase === 'asking';
@@ -1235,10 +1235,10 @@ function setBosses(list){
   cohost = bill || null;
   if (cohost && !cohostSprite.here){ cohostSprite.here = true; cohostSprite.x = DOOR.x; cohostSprite.y = DOOR.y; goTo(cohostSprite, {x:4.9, y:2.3}, () => { cohostSprite.fx = -1; cohostSprite.fy = 0; }); }
   if (!cohost) cohostSprite.here = false;
-  cohostSprite.name = cohost?.name || ''; cohostSprite.shirt = cohost?.id === 'bill' ? '#2F8F6A' : C.velvet;
+  cohostSprite.name = cohost?.name || ''; cohostSprite.shirt = cohost?.id === 'bill' ? '#1F9E97' : C.velvet;
 }
 let cohost = null;
-const cohostSprite = {name:'', x:DOOR.x, y:DOOR.y, z:0, path:[], fx:0, fy:1, walkPhase:0, scale:1.12, isBoss:true, skin:'#E0A77A', hair:'#3D3D3D', shirt:'#2F8F6A', here:false};
+const cohostSprite = {name:'', x:DOOR.x, y:DOOR.y, z:0, path:[], fx:0, fy:1, walkPhase:0, scale:1.12, isBoss:true, skin:'#E0A77A', hair:'#3D3D3D', shirt:'#1F9E97', here:false};
 function joinFx(b){ say(cohostSprite, `Hey ${ME.name.split(' ')[0]}, I'm in!`, 2.4); }
 function drawViewers(){
   for (const b of BOSS_LIST){
@@ -1350,6 +1350,7 @@ function frameInner(now){
   for (const sp of sprites.values()) items.push({k:sp.x + sp.y + (sp.sitting ? .05 : 0), f:() => drawPerson(sp)});
   items.push({k:boss.onThrone ? 5.3 : boss.x + boss.y, f:() => drawPerson(boss)});
   if (cohostSprite.here) items.push({k:cohostSprite.x + cohostSprite.y, f:() => drawPerson(cohostSprite)});
+  HOOKS.items.forEach(fn => { try { fn(items); } catch (e) { console.error(e); } });
   items.sort((a, b) => a.k - b.k).forEach(i => i.f());
   particles.forEach(p => {
     const s = iso(p.x, p.y, p.z); ctx.globalAlpha = Math.min(1, p.life);
@@ -1365,10 +1366,10 @@ function frameInner(now){
   uiT -= rdt; if (uiT <= 0){ uiT = .5; renderPeek(false); }
 }
 // Feature modules (public/features/*.js) hook in here.
-const HOOKS = {msg:[], draw:[], drawTop:[], stats:[]};
+const HOOKS = {msg:[], draw:[], drawTop:[], stats:[], items:[]};
 window.__throne = { openChat: id => openChat(id), state: () => S,
   on: (type, fn) => HOOKS.msg.push({type, fn}), onDraw: fn => HOOKS.draw.push(fn), onDrawTop: fn => HOOKS.drawTop.push(fn),
-  get ctx(){ return ctx; }, get simT(){ return simT; }, get me(){ return ME; }, get bosses(){ return BOSS_LIST; },
+  get ctx(){ return ctx; }, get simT(){ return simT; }, get me(){ return ME; }, get bosses(){ return BOSS_LIST; }, get cohost(){ return cohost; }, get peek(){ return peekTarget; }, onItems: fn => HOOKS.items.push(fn), cohostSprite, boss, drawPerson, lineOrder, renderPeek, LINE_PHASES, qSpot,
   iso, rr, poly, box, esc, md, toast, send, openModal, closeModal, byId, DESKS, seatOf, sprites, G, KIND_COLOR, wallPt, recallBeam, onKnows, showPin, flyLesson, say, goTo, C, $ };
 renderLine();
 connect();
