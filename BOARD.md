@@ -2,6 +2,7 @@
 
 | Tag | Time | Contains | Clips it can produce |
 |---|---|---|---|
+| stable-4 | 16:38 | stable-3 + P3 multiplayer hand-off (partial): `handOff` action moves workers to another boss, later QM turns run under the new owner's principal; teammate throne + ERIK/BILL signs, join banner, "Hand to Bill" in the chat drawer, owner-colored desk rings and pulse. Bill is teal. npm test 27/27. | bill joins, hand-off |
 | stable-3 | 16:36 | stable-2 + P2 talk-first (server, opt-in): hire with talkFirst holds the worker in phase `talking`, planning-only replies, "What we've agreed" card (w.agreed), `sendAway` action starts the real session. No client UI yet; default hire flow unchanged. npm test 27/27. | none yet (no UI) |
 | stable-2 | 16:32 | stable-1 + UI QA fixes: brain panel page count and textarea, staggered desk bubbles. npm test 27/27. | same clips |
 | stable-1 | 16:22 | P1 GBrain wall + rule climax: wall graph from real GBrain pages/links, node→desk recall beams, lesson cards, taught rule pinned as a node, desks light up one by one with "✓ <rule>", "Pinned to GBrain · N desks know it". Parrot Works example pack. Feature-module hooks. | gbrain_recall, gbrain_teach, gbrain_learn |
