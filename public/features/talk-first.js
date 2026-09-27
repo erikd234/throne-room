@@ -19,6 +19,7 @@
 .tf-v{color:var(--ink);overflow-wrap:anywhere} .tf-v.off{color:#9A91A8}
 .tf-go{flex-shrink:0;display:flex;gap:10px;align-items:center;border-top:2px dashed #E4DBCB;padding:10px 12px;background:var(--paper)}
 .tf-go .btn{font-size:17px;white-space:nowrap} .tf-go kbd{font:900 11px var(--sans);opacity:.6;margin-left:4px}
+#drawer .composer{flex-shrink:0}
 .tf-go span{font:800 12px var(--sans);color:var(--muted)}`;
   document.head.appendChild(st);
   const card = document.createElement('div'); card.className = 'tf-card'; card.hidden = true;
