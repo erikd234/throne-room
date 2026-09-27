@@ -10,3 +10,4 @@ video/shots/
 *.wav
 *.mp3
 .DS_Store
+!media/throne-demo.mp4

@@ -1,5 +1,12 @@
 # Throne Room
 
+**Run your company from a throne: real QM agents bring you proof, share one GBrain, and teammates rule beside you.**
+
+[![Watch the Throne demo (2:36)](media/throne-demo-poster.jpg)](https://parrotspace.sfo3.digitaloceanspaces.com/hackathon/throne/v3/throne-demo-v3.mp4)
+
+▶ **[Watch the demo (2:36, 1080p)](https://parrotspace.sfo3.digitaloceanspaces.com/hackathon/throne/v3/throne-demo-v3.mp4)**, or play [`media/throne-demo.mp4`](media/throne-demo.mp4) from this repo.
+Built at YC's Own Your Intelligence hackathon. Clips labeled **REAL** are the live app on the QM fork; the other scenes are rendered from the product design.
+
 Sit on a throne in an isometric office. Hire workers; each one is a real Claude
 Agent SDK session in its own git worktree. They come back up the carpet to ask
 questions, present proof, and get their PRs merged.
