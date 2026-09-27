@@ -498,6 +498,7 @@ function drawRoom(){
   for (let x = 0; x <= N; x++){ a = iso(x,0); b = iso(x,N); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
   ctx.globalAlpha = 1;
   poly([iso(0,N), iso(N,N), iso(N,N,-14), iso(0,N,-14)], '#8E6C48'); poly([iso(N,0), iso(N,N), iso(N,N,-14), iso(N,0,-14)], '#7A5B3C');
+  HOOKS.floor.forEach(fn => { try { fn(1/60); } catch (e) { console.error(e); } });
   const s0 = 3.4, s1 = 19.6, w = .8;
   poly([iso(s0+w, s0-w), iso(s1+w, s1-w), iso(s1-w, s1+w), iso(s0-w, s0+w)], C.carpet, C.carpetEdge, 2.5);
   if (!boss.onThrone && hoverTile && free(Math.floor(hoverTile.x), Math.floor(hoverTile.y))){
@@ -1341,7 +1342,7 @@ function frameInner(now){
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#2B2740'; ctx.fillRect(0, 0, cw, ch);
   const v = view(); ctx.setTransform(dpr*v.s, 0, 0, dpr*v.s, dpr*v.ox, dpr*v.oy); ctx.lineJoin = 'round';
-  drawRoom(); drawWall(); HOOKS.floor.forEach(fn => { try { fn(rdt); } catch (e) { console.error(e); } });
+  drawRoom(); drawWall();
   const items = [];
   DESKS.forEach(d => items.push({k:d.x + d.y + .9, f:() => { const z = DESK_LIFT[d.i]; if (z) { ctx.save(); ctx.globalAlpha = Math.max(0, 1 - z/160); ctx.translate(0, -z); drawDesk(d); ctx.restore(); } else drawDesk(d); }}));
   DECOR.forEach(o => items.push({k:o.x + o.y + 1, f:() => drawDecor(o)}));

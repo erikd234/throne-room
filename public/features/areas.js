@@ -2,7 +2,7 @@
 (() => {
 const T = window.__throne, { iso, poly, rr, esc, send, openModal, closeModal, DESKS, DESK_LIFT } = T;
 const PALETTE = ['#2EAD6B', '#4F8DF5', '#E4506A', '#8C6BD9', '#F29D38', '#EE77AE', '#3AA0C9'];
-const born = new Map(); // area id -> seconds since its areaCreated arrived (animations only run for live creations)
+let lastT = 0; const born = new Map(); // area id -> seconds since its areaCreated arrived (animations only run for live creations)
 const hexA = (hex, a) => { const n = parseInt(String(hex || '#2EAD6B').slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})`; };
 const P = (t, a, b) => Math.max(0, Math.min(1, (t - a)/(b - a))), eout = k => 1 - (1 - k)**3;
 const back = k => k <= 0 ? 0 : k >= 1 ? 1 : 1 + 2.7*(k - 1)**3 + 1.7*(k - 1)**2;
@@ -24,7 +24,7 @@ function drawZone(a, t){
 function drawSign(a, t){
   const r = rectOf(a.desks || []); if (!r) return;
   const k = t == null ? 1 : back(P(t, .35, .9)); if (k <= 0) return;
-  const ctx = T.ctx, sx = r[2] - .35, sy = r[3] - .35, base = iso(sx, sy), top = iso(sx, sy, 64*k), b = iso(sx, sy, 80*k);
+  const ctx = T.ctx, sx = r[0] + .35, sy = r[1] + .35, base = iso(sx, sy), top = iso(sx, sy, 64*k), b = iso(sx, sy, 80*k);
   ctx.strokeStyle = '#6B4A34'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(top.x, top.y); ctx.stroke();
   ctx.save(); ctx.translate(b.x, b.y); ctx.scale(k, k);
   ctx.font = '700 17px Fredoka, sans-serif'; const w = ctx.measureText(a.name).width + 30;
@@ -40,7 +40,8 @@ function drawGhost(){
   btn.hidden = false; btn.style.left = (m.a*c.x + m.c*c.y + m.e)/dpr + 'px'; btn.style.top = (m.b*c.x + m.d*c.y + m.f)/dpr + 'px';
   btn.style.transform = `translate(-50%,-50%) scale(${Math.max(.6, Math.min(1.3, m.a/dpr))})`;
 }
-T.onDrawFloor(dt => {
+T.onDrawFloor(() => {
+  const now = performance.now()/1000, dt = Math.min(.05, now - (lastT || now)); lastT = now;
   for (const [id, t] of born) born.set(id, t + dt);
   const list = areas();
   list.forEach(a => drawZone(a, born.get(a.id)));
