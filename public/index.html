@@ -292,7 +292,7 @@ const DESKS = [[8,3],[11,3],[14,3],[17,3],[11,7],[14,7],[17,7],[14,11],[17,11],
 const blocked = Array.from({length:N}, () => new Array(N).fill(false));
 DESKS.forEach(d => blocked[d.x][d.y] = true);
 for (let x = 1; x <= 3; x++) for (let y = 1; y <= 3; y++) blocked[x][y] = true;
-const DECOR = [{x:0,y:19,kind:'plant'},{x:0,y:6,kind:'cooler'},{x:10,y:0,kind:'plant'},{x:19,y:15,kind:'plant'},{x:15,y:19,kind:'plant'}];
+const DECOR = [{x:0,y:19,kind:'plant'},{x:10,y:0,kind:'plant'},{x:19,y:15,kind:'plant'},{x:15,y:19,kind:'plant'}];
 DECOR.forEach(d => blocked[d.x][d.y] = true);
 const VAULT = {x:19, y:2}; blocked[19][2] = true; blocked[19][3] = true;
 const VAULT_SPOT = {x:18.4, y:2.9};
@@ -672,6 +672,7 @@ function connect(){
   ws.onclose = () => { online = false; $('#conn').textContent = 'Offline'; $('#conn').className = 'off'; setTimeout(() => { if (!online) $('#offline').hidden = false; }, 1500); setTimeout(connect, 2000); };
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
+    HOOKS.msg.forEach(h => { if (h.type === m.type || h.type === '*') try { h.fn(m); } catch (e) { console.error(e); } });
     if (m.type === 'state'){ S = m.state; S.rules = S.rules || []; gbrainOn = !!m.gbrain; if (m.qm !== undefined) QM_ON = !!m.qm; if (m.me) { ME = m.me; boss.shirt = ME.id === 'bill' ? '#2F8F6A' : C.velvet; } if (m.bosses) setBosses(m.bosses); if (m.wall) PAGES = m.wall; if (m.graph) setGraph(m.graph); if (m.defaults) defaults = m.defaults; sync(); if (brainOpen) renderBrain(); renderServices(); }
     else if (m.type === 'taught'){ showPin(m); brainChat.push({who:'sys', text:`Taught to everyone${m.reached ? `, and ${m.reached} working now` : ''}.`}); if (brainOpen) renderBrain(); }
     else if (m.type === 'presence'){ setBosses(m.bosses); if (m.joined && m.joined.id !== ME.id) { toast(`${m.joined.name} joined the studio`); joinFx(m.joined); } }
@@ -1101,8 +1102,8 @@ function onNode(m){
   if (!had){ g.born = simT; g.hidden = !!m.fromDesk; gLayout(40, .35); pulseStat(); }
   g.flash = 1.6;
 }
-function recallBeam(id, slugs){
-  const to = deskMonitor(id); if (!to) return;
+function recallBeam(id, slugs, tries = 0){
+  const to = deskMonitor(id); if (!to){ if (tries < 12) setTimeout(() => recallBeam(id, slugs, tries + 1), 250); return; }
   (slugs || []).slice(0, 3).forEach((sl, i) => { const n = G.nodes.get(sl); if (!n) return; n.flash = 2.2; recallFx.push({slug:sl, id, t:0, dur:2.4, delay:i*.25, label:i === 0 ? n.title : '', color:'#35E0FF'}); });
 }
 function pulseStat(){ const e = $('#s-gb-w'); e.classList.add('pulse'); clearTimeout(pulseStat.t); pulseStat.t = setTimeout(() => e.classList.remove('pulse'), 1600); }
@@ -1142,9 +1143,9 @@ function drawWall(){
   const gr = ctx.createLinearGradient(q[3].x, q[3].y, q[1].x, q[1].y); gr.addColorStop(0, '#231A4F'); gr.addColorStop(1, '#141030');
   poly(q, gr, '#0D0A20', 4);
   // watermark, drawn in wall space so it lies on the wall
-  ctx.save(); const o = wallPt(0, 0), ux = (wallPt(WLEN, 0).x - o.x)/WLEN, uy = (wallPt(WLEN, 0).y - o.y)/WLEN;
-  ctx.transform(ux, uy, 0, -1, o.x, o.y); ctx.font = '700 34px Fredoka, sans-serif'; ctx.fillStyle = 'rgba(124,92,255,.22)'; ctx.textBaseline = 'middle';
-  ctx.fillText('GBRAIN', 16, WH - 24); ctx.restore();
+  ctx.save(); const o = wallPt(WLEN, 0), ux = (wallPt(0, 0).x - o.x)/WLEN, uy = (wallPt(0, 0).y - o.y)/WLEN;
+  ctx.transform(ux, uy, 0, 1, o.x, o.y); ctx.font = '700 40px Fredoka, sans-serif'; ctx.fillStyle = 'rgba(150,120,255,.5)'; ctx.textBaseline = 'middle';
+  ctx.fillText('GBRAIN', WLEN*.42, -WH + 28); ctx.restore();
   ctx.save(); ctx.lineWidth = .9;
   for (const l of G.links){
     const a = G.nodes.get(l.a), b = G.nodes.get(l.b); if (!a || !b || a.hidden || b.hidden) continue;
@@ -1154,8 +1155,11 @@ function drawWall(){
     ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + (r.x - p.x)*l.t, p.y + (r.y - p.y)*l.t); ctx.stroke();
   }
   ctx.restore();
-  const labeled = [...G.nodes.values()].filter(n => !n.hidden).sort((a, b) => (b.flash > 0) - (a.flash > 0) || (b.kind === 'rule') - (a.kind === 'rule') || b.deg - a.deg).slice(0, 22);
-  const lset = new Set(labeled);
+  const labeled = [...G.nodes.values()].filter(n => !n.hidden).sort((a, b) => (b.flash > 0) - (a.flash > 0) || (b.kind === 'rule') - (a.kind === 'rule') || b.deg - a.deg).slice(0, 24);
+  const lset = new Set(), boxes = [];
+  ctx.font = '800 10px Nunito, sans-serif';
+  for (const n of labeled){ const p = wallPt(n.X, n.Y), w = Math.min(20, n.title.replace(/^Rule:\s*/, '').length)*5.2 + 8, b = [p.x + 4, p.y - 7, p.x + 4 + w, p.y + 7];
+    if (boxes.some(o => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1])) continue; boxes.push(b); lset.add(n); if (lset.size >= 16) break; }
   for (const n of G.nodes.values()){
     if (n.hidden) continue;
     const p = wallPt(n.X, n.Y), c = KIND_COLOR[n.kind] || KIND_COLOR.note, age = simT - n.born, pop = age < .6 ? 1 + Math.sin(age/.6*Math.PI)*1.2 : 1;
@@ -1165,8 +1169,8 @@ function drawWall(){
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
     if (n.pinned){ ctx.fillStyle = '#E4506A'; ctx.strokeStyle = '#2A2536'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y - r - 4, 2.6, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x, p.y - r - 1.5); ctx.lineTo(p.x, p.y - r); ctx.stroke(); }
     if (lset.has(n)){
-      let t = n.title.replace(/^Rule:\s*/, ''); if (t.length > 22) t = t.slice(0, 21) + '…';
-      ctx.font = `800 ${n.flash > 0 ? 8.5 : 7}px Nunito, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      let t = n.title.replace(/^Rule:\s*/, ''); if (t.length > 20) t = t.slice(0, 19) + '…';
+      ctx.font = `800 ${n.flash > 0 ? 11 : 9}px Nunito, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillStyle = n.flash > 0 ? '#FFFFFF' : 'rgba(236,230,255,.82)'; ctx.fillText(t, p.x + r + 3, p.y);
     }
   }
@@ -1351,16 +1355,24 @@ function frameInner(now){
     else { ctx.fillStyle = p.color; ctx.font = '700 10px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.text, s.x, s.y); }
     ctx.globalAlpha = 1;
   });
+  HOOKS.draw.forEach(fn => { try { fn(rdt); } catch (e) { console.error(e); } });
   drawDeskFx(rdt); drawWallFx(rdt); drawViewers();
+  HOOKS.drawTop.forEach(fn => { try { fn(rdt); } catch (e) { console.error(e); } });
   updateMover(cohostSprite, rdt, 2.8); if (cohostSprite.bubble){ cohostSprite.bubble.t -= rdt; if (cohostSprite.bubble.t <= 0) cohostSprite.bubble = null; }
   [...sprites.values(), boss, ...(cohostSprite.here ? [cohostSprite] : [])].forEach(drawOverhead);
   uiT -= rdt; if (uiT <= 0){ uiT = .5; renderPeek(false); }
 }
-window.__throne = { openChat: id => openChat(id), state: () => S };
+// Feature modules (public/features/*.js) hook in here.
+const HOOKS = {msg:[], draw:[], drawTop:[], stats:[]};
+window.__throne = { openChat: id => openChat(id), state: () => S,
+  on: (type, fn) => HOOKS.msg.push({type, fn}), onDraw: fn => HOOKS.draw.push(fn), onDrawTop: fn => HOOKS.drawTop.push(fn),
+  get ctx(){ return ctx; }, get simT(){ return simT; }, get me(){ return ME; }, get bosses(){ return BOSS_LIST; },
+  iso, rr, poly, box, esc, md, toast, send, openModal, closeModal, byId, DESKS, seatOf, sprites, G, KIND_COLOR, wallPt, recallBeam, onKnows, showPin, flyLesson, say, goTo, C, $ };
 renderLine();
 connect();
 requestAnimationFrame(frame);
 })();
 </script>
+<!--FEATURES-->
 </body>
 </html>

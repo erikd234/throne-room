@@ -1,0 +1,40 @@
+{
+  "name": "Parrot Works",
+  "bosses": [
+    {"id": "erik", "name": "Erik", "color": "#E7B12F"},
+    {"id": "bill", "name": "Bill Land", "color": "#1F9E97"}
+  ],
+  "areas": [
+    {"id": "engineering", "name": "Engineering", "color": "#4F8DF5", "repos": ["parrot", "one-app", "macbridge"]},
+    {"id": "support", "name": "Support", "color": "#2BB5A8", "repos": []},
+    {"id": "marketing", "name": "Marketing", "color": "#FF7A59", "repos": []},
+    {"id": "events", "name": "Events", "color": "#B77CFF", "repos": []},
+    {"id": "finance", "name": "Finance", "color": "#2EAD6B", "repos": []}
+  ],
+  "rules": [
+    {"text": "Refunds under $50: approve without asking. Over $50: bring it to the throne.", "from": "erik"},
+    {"text": "Launch emails: under 100 words, no emojis, Bill signs off.", "from": "erik"},
+    {"text": "UI changes need screenshots in both light and dark themes.", "from": "erik"},
+    {"text": "Post every release stage and failure to #releases.", "from": "erik"},
+    {"text": "Any single events cost over $500 goes to Bill first.", "from": "bill"}
+  ],
+  "automations": [
+    {"id": "monthly-close", "name": "Monthly close", "schedule": {"human": "1st of the month · 09:00", "cron": "0 9 1 * *"}, "kind": "cron", "area": "finance", "task": "Run the monthly close for last month: reconcile Stripe payouts with the bank export on payout ID, categorize expenses, and present the P&L (revenue, gross margin, burn, runway) for Bill to approve."},
+    {"id": "support-digest", "name": "Support digest", "schedule": {"human": "Mondays · 08:00", "cron": "0 8 * * 1"}, "kind": "cron", "area": "support", "task": "Summarize last week's support tickets: volume, top 3 themes with counts, refunds approved under $50, and anything waiting on the throne."},
+    {"id": "payout-failed", "name": "Payout failed", "schedule": {"human": "On Stripe payout.failed webhook", "cron": null}, "kind": "webhook", "event": "stripe:payout.failed", "area": "support", "task": "A Stripe payout failed. Draft a short reply asking the creator for updated bank details, do not retry the payout, and tell Finance it is pending."},
+    {"id": "flaky-test-sweep", "name": "Flaky test sweep", "schedule": {"human": "Nightly · 02:00", "cron": "0 2 * * *"}, "kind": "cron", "area": "engineering", "task": "Find tests in parrot that failed then passed on rerun in the last 24h. File one Linear ticket per flaky test with the failing log excerpt."},
+    {"id": "low-star-reviews", "name": "New review under 3 stars", "schedule": {"human": "App Store watch · every 30 min", "cron": "*/30 * * * *"}, "kind": "watch", "area": "marketing", "task": "A new App Store review under 3 stars arrived. Match it to a feedback cluster, draft a reply that names the fix without arguing, and link the Linear ticket if it is a bug."}
+  ],
+  "demoTasks": [
+    {"area": "support", "role": "Support", "name": "Maya", "task": "A customer says their 212-day streak reset after flying from New York to Tokyo. Draft a short, kind reply with a worked time-zone example and tell them we restored the streak."},
+    {"area": "support", "role": "Support", "name": "Hedy", "task": "Reply to ticket #4412: a learner was charged $29.99 for an annual plan they meant to cancel. Apply the refund rule and write the reply."},
+    {"area": "support", "role": "Support", "name": "Sam", "task": "Write this week's support digest from these counts: 212 tickets, 58 streak issues, 41 billing, 13 feed flicker, 9 refunds approved."},
+    {"area": "marketing", "role": "Marketing", "name": "Radia", "task": "Draft the launch tweet for paywall dark mode, under 240 characters, no emojis."},
+    {"area": "marketing", "role": "Marketing", "name": "Maya", "task": "Write Friday's launch email for dark mode: under 100 words, no emojis, Bill signs off."},
+    {"area": "marketing", "role": "Marketing", "name": "Radia", "task": "Reply to a 2-star App Store review: 'screen goes dark for a sec before every lesson video, annoying'. The fix is in progress."},
+    {"area": "events", "role": "Events", "name": "Frances", "task": "Make a checklist for booking the Oct 12 learner meetup venue for 40 people, including the deposit deadline."},
+    {"area": "events", "role": "Events", "name": "Dennis", "task": "Write the invite for the Oct 12 learner meetup: date, what to expect, RSVP link placeholder, under 120 words."},
+    {"area": "finance", "role": "Finance", "name": "Penny", "task": "Summarize the September close in five bullets: revenue $184.2k (+7.6% MoM), gross margin 81%, burn $96k, runway 22 months, 0 reconciliation mismatches."},
+    {"area": "finance", "role": "Finance", "name": "Felix", "task": "Categorize these expenses and flag anything over $500 for Bill: venue deposit $400, Figma $75, EAS builds $299, meetup catering $620, Sentry $80."}
+  ]
+}

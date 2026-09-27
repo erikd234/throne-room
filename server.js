@@ -234,8 +234,8 @@ async function brainDelete(sl) {
   if (GBRAIN) await BR.call('delete_page', { slug: sl }).catch(() => {});
   emit({ type: 'unnode', slug: sl, pages: BRAIN_CACHE.size });
 }
-const STOP = new Set('the and for with that this from have your what when will into they them then than been were about which their there would could should after before only just more also make made each other some such very over most need does done able'.split(' '));
-const termsOf = q => [...new Set(String(q).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(t => t.length > 3 && !STOP.has(t)))];
+const STOP = new Set('the and for our you are but not can did they even though check brain draft reply says with that this from have your what when will into they them then than been were about which their there would could should after before only just more also make made each other some such very over most need does done able'.split(' '));
+const termsOf = q => [...new Set(String(q).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(t => t.length > 2 && !STOP.has(t) && !/^\d+$/.test(t)).map(t => t.length > 4 ? t.replace(/(ing|ed|es|s)$/, '') : t))];
 async function brainSearch(q, n = 4, { exclude = [] } = {}) {
   if (!String(q).trim()) return [];
   const terms = termsOf(q);
@@ -250,9 +250,9 @@ async function brainSearch(q, n = 4, { exclude = [] } = {}) {
   return (Array.isArray(out) ? out : []).map(r => ({ slug: r.slug, title: r.title, text: r.chunk_text || r.title, score: r.score }));
 }
 async function recall(w, text) {
-  const found = await brainSearch(`${w.task} ${text}`);
+  const found = await brainSearch(`${w.task} ${text}`, 5);
   const rulesHits = state.rules.map(r => ({ slug: `throne/rules/${r.id}`, title: `Rule: ${r.text}`, text: r.text }));
-  const seen = new Set(), all = [...rulesHits, ...found].filter(x => !seen.has(x.slug) && seen.add(x.slug));
+  const seen = new Set(), all = [...found, ...rulesHits].filter(x => !seen.has(x.slug) && seen.add(x.slug));
   if (all.length) {
     w._recalled = [...new Set([...(w._recalled || []), ...all.map(x => x.slug)])].slice(-12);
     chatPush(w, { role: 'system', text: `Recalled from the studio brain (GBrain): ${all.map(x => x.text.slice(0, 80)).join(' · ')}`, recall: all.map(x => x.slug) });
@@ -306,6 +306,15 @@ async function seedBrain() {
   const t = Date.now(), pack = readPack(path.join(EXAMPLE, 'brain'));
   for (const pg of pack) await brainPut(pg.slug, pg.title, pg.body + (pg.meta.includes('steps:') ? `\n\n<!-- playbook\n${pg.meta}\n-->` : ''), pg.tags.filter(x => x !== 'throne'));
   for (const pg of pack) if (pg.links.length) await brainPut(pg.slug, pg.title, BRAIN_CACHE.get(pg.slug).body, pg.tags.filter(x => x !== 'throne'), pg.links);
+  let company = {}; try { company = JSON.parse(fs.readFileSync(path.join(EXAMPLE, 'company.json'), 'utf8')); } catch {}
+  for (const r of company.rules || []) if (!state.rules.some(x => x.text === r.text)) {
+    const b = Object.values(BOSSES).find(x => x.name === r.from || x.id === r.from) || BOSSES.erik;
+    state.rules.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: r.text, at: Date.now(), from: b.name, fromId: b.id, label: ruleLabel(r.text), knownBy: [] });
+  }
+  for (const r of state.rules) {
+    const related = (await brainSearch(r.text, 3)).map(h => h.slug).filter(x => !x.startsWith('throne/rules/'));
+    await brainPut(`throne/rules/${r.id}`, `Rule: ${r.text.slice(0, 60)}`, `${r.text}\n\nTaught by ${r.from}. Applies to every worker.`, ['rule'], [`people/${slug(r.from || 'erik')}`, ...related]);
+  }
   state.brainSeeded = Date.now(); changed();
   console.log(`Loaded ${path.basename(EXAMPLE)} into the studio brain: ${BRAIN_CACHE.size} pages, ${GRAPH.links.length} links in ${((Date.now() - t) / 1000).toFixed(1)}s.`);
 }
@@ -1428,9 +1437,17 @@ function serveFile(res, file, req) {
     fs.createReadStream(file).pipe(res);
   });
 }
+const ROUTES = [], CONNECT = [];
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (url === '/') return serveFile(res, path.join(PUBLIC, 'index.html'), req);
+  if (url === '/') {
+    // Feature modules in public/features/*.js load after the room, through window.__throne.
+    const tags = FEATURE_FILES().map(f => `<script src="/features/${f}"></script>`).join('\n');
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8').replace('<!--FEATURES-->', tags));
+  }
+  if (url.startsWith('/features/') && FEATURE_FILES().includes(url.slice(10))) return serveFile(res, path.join(PUBLIC, 'features', url.slice(10)), req);
+  for (const r of ROUTES) if (url.startsWith(r.prefix)) return r.fn(req, res, url);
   if (url.startsWith('/mcp/')) {
     const [, , id, token] = url.split('/');
     const w = byId(+id);
@@ -1483,7 +1500,7 @@ wss.on('connection', (ws, req) => {
   const boss = BOSSES[as] || BOSSES.erik;
   const firstForBoss = ![...online.values()].some(p => p.boss.id === boss.id);
   online.set(ws, { boss, viewing: null });
-  ws.send(JSON.stringify({ type: 'state', state, gbrain: GBRAIN, qm: QM_UP, me: boss, bosses: presence(), wall: WALL, graph: graphPayload(), defaults: { repo: state.repos[0] || process.env.THRONE_DEFAULT_REPO || '' } }, strip));
+  ws.send(JSON.stringify({ type: 'state', state, gbrain: GBRAIN, qm: QM_UP, me: boss, bosses: presence(), wall: WALL, graph: graphPayload(), ...Object.assign({}, ...CONNECT.map(fn => fn(boss))), defaults: { repo: state.repos[0] || process.env.THRONE_DEFAULT_REPO || '' } }, strip));
   emit({ type: 'presence', bosses: presence(), joined: firstForBoss ? boss : null });
   ws.on('close', () => { sockets.delete(ws); online.delete(ws); emit({ type: 'presence', bosses: presence() }); });
   ws.on('message', async raw => {
@@ -1495,6 +1512,13 @@ wss.on('connection', (ws, req) => {
     catch (e) { ws.send(JSON.stringify({ type: 'error', message: e.message.split('\n')[0] })); }
   });
 });
+// Feature modules: features/*.js export default (api) => {}. They add actions, routes,
+// and connect-time payloads without touching this file.
+const FEATURE_FILES = () => { try { return fs.readdirSync(path.join(PUBLIC, 'features')).filter(f => f.endsWith('.js')).sort(); } catch { return []; } };
+const FEATURE_API = { state, ACTIONS, ROUTES, CONNECT, emit, changed, byId, BOSSES, BRAIN_CACHE, GRAPH, brainPut, brainSearch, recall, teach, chatPush, pushLog, bossOf, get QM() { return QM; }, get QM_UP() { return QM_UP; }, get GBRAIN() { return GBRAIN; }, BR, FAKE, HOME, ROOT, EXAMPLE };
+for (const f of (() => { try { return fs.readdirSync(path.join(ROOT, 'features')).filter(f => f.endsWith('.js')).sort(); } catch { return []; } })()) {
+  try { (await import(path.join(ROOT, 'features', f))).default(FEATURE_API); console.log(`Feature: ${f}`); } catch (e) { console.log(`Feature ${f} failed: ${e.message}`); }
+}
 server.listen(PORT, '127.0.0.1', () => console.log(`Throne Room: http://localhost:${PORT}`));
 
 const NAMES = ['Ada', 'Linus', 'Grace', 'Ken', 'Radia', 'Guido', 'Hedy', 'Alan', 'Frances', 'Tim', 'Barbara', 'Dennis', 'Joan', 'Bjarne', 'Sophie', 'Yukihiro', 'Margaret', 'Anders'];
