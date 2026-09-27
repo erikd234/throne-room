@@ -2,6 +2,7 @@
 
 | Tag | Time | Contains | Clips it can produce |
 |---|---|---|---|
+| stable-2 | 16:32 | stable-1 + UI QA fixes: brain panel page count and textarea, staggered desk bubbles. npm test 27/27. | same clips |
 | stable-1 | 16:22 | P1 GBrain wall + rule climax: wall graph from real GBrain pages/links, node→desk recall beams, lesson cards, taught rule pinned as a node, desks light up one by one with "✓ <rule>", "Pinned to GBrain · N desks know it". Parrot Works example pack. Feature-module hooks. | gbrain_recall, gbrain_teach, gbrain_learn |
 
 ## Outcome of in-flight work (freeze 16:30)

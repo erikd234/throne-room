@@ -114,6 +114,8 @@ a{color:var(--sky);font-weight:700}
 .skillpick label:hover{background:var(--paper-2)}
 .skillpick small{grid-column:2;color:var(--muted);font-weight:500}
 .stat.click{cursor:pointer}
+#brain-in{min-height:64px}
+#brain-chat{min-height:52px}
 .stat.brainstat small{color:#7C5CFF}
 .stat.brainstat.pulse{background:#E3FFF8}
 .pin{position:absolute;left:16px;top:84px;width:min(440px,calc(100% - 32px));padding:14px 18px 14px;z-index:5;border-width:3px;box-shadow:0 6px 0 rgba(20,14,30,.7);transform-origin:top left;animation:pinIn .35s cubic-bezier(.3,1.6,.5,1)}
@@ -1049,7 +1051,7 @@ function openBrain(){
 }
 function renderBrain(){
   if ($('#scrim').hidden || !$('#brain-chat')){ brainOpen = false; return; }
-  $('#brain-status').textContent = `Shared by every worker and every boss · ${gbrainOn ? `GBrain studio brain · ${PAGES.length} pages` : 'Built-in memory'}${QM_ON ? ' · QM org memory' : ''}`;
+  $('#brain-status').textContent = `Shared by every worker and every boss · ${gbrainOn ? `GBrain studio brain · ${(G.pages || G.nodes.size).toLocaleString()} pages` : 'Built-in memory'}${QM_ON ? ' · QM org memory' : ''}`;
   $('#brain-wall').innerHTML = PAGES.length ? PAGES.map(pg => `<li>${esc(pg.title)}<small>${esc(pg.slug)} · ${esc(pg.date)}</small></li>`).join('') : '<li style="background:none;box-shadow:none;border-style:dashed">Nothing yet. Rules you teach and work your team finishes land here.</li>';
   $('#brain-chat').innerHTML = (brainChat.length ? brainChat : [{who:'sys', text:'Teach a rule and every worker follows it, including the ones working right now. Ask a question to search what the studio knows.'}])
     .map(c => `<p class="${c.who}">${esc(c.text)}</p>`).join('') + (brainBusy ? '<p class="sys">The brain is thinking…</p>' : '');
@@ -1208,7 +1210,7 @@ function drawDeskFx(rdt){
     const w = byId(id), d = w && DESKS[w.desk]; if (!d) continue;
     const a = Math.min(1, f.t*4, (7 - f.t)*2), c = seatOf(d), ring = iso(c.x, c.y);
     ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = f.color; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.ellipse(ring.x, ring.y, 30, 15, 0, 0, 7); ctx.stroke();
-    const p = iso(d.x + .5, d.y + .3, 96 + Math.min(1, f.t*3)*6);
+    const p = iso(d.x + .5, d.y + .3, 96 + (d.i % 2)*22 + Math.min(1, f.t*3)*6);
     ctx.font = '800 11px Nunito, sans-serif'; const tw = ctx.measureText(f.label).width + 18, pop = f.t < .25 ? .6 + f.t/.25*.4 : 1;
     ctx.translate(p.x, p.y); ctx.scale(pop, pop);
     ctx.fillStyle = '#FFE9A8'; ctx.strokeStyle = '#2A2536'; ctx.lineWidth = 2; rr(-tw/2, -12, tw, 22, 7); ctx.fill(); ctx.stroke();

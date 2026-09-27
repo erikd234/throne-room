@@ -1,6 +1,6 @@
 # Throne: submission
 
-**Ship tag: `stable-1`** (`~/dev/throne-room`, commit `fab9a54`). This is the front end for QM: every worker is a real QM session, and the whole studio shares one GBrain.
+**Ship tag: `stable-2`** · code: https://github.com/erikd234/throne-room (public; history scanned for secrets, none found). This is the front end for QM: every worker is a real QM session, and the whole studio shares one GBrain.
 
 ## Run it (one command, QM must be up)
 
@@ -13,7 +13,9 @@ cd ~/dev/throne-room && THRONE_HOME=$(mktemp -d) PORT=4777 npm start
 - QM needs to be running first: `cd ~/dev/qm && npm run dev-instance:web` (core :8081, admin :8129/admin).
 - `npm run reset:brain` wipes the default studio brain and reloads the pack.
 
-## Verified on stable-1 (16:22–16:24)
+## Verified (stable-1 16:22–16:24, stable-2 16:32)
+
+- **stable-2 UI click-through:** hire dialog, chat drawer, review modal, and brain panel all render at 1920×1080 with no overlap. Fixed the brain panel page count and textarea height, and staggered the desk bubbles. `npm test` passed 27/27.
 
 - **Fake e2e:** `npm test` passed 27/27 (hire, chat, uploads, slash skills, present/review, PR/merge, teach, services, workspace picking).
 - **Live QM pass** on a fresh boot:
@@ -50,5 +52,6 @@ cd ~/dev/throne-room && THRONE_HOME=$(mktemp -d) PORT=4777 npm start
   - Services that Codex starts don't show up in the services catalog.
   - A Claude worker in the `done` phase doesn't answer a `/skill` chat.
 - Every `recall` also includes all standing rules. The beams take pages first and show up to 3.
+- Narrow and phone widths were not re-checked after the wall change.
 - The wall labels are dense with 80+ nodes. Only 16 are labeled, chosen by collision.
 - `~/.throne-room/gbrain-old-*` holds an earlier seed built from Erik's personal agent memory notes. It isn't used; delete it if you don't want it on disk.
