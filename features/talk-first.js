@@ -31,9 +31,9 @@ export default (api) => {
   }
   async function extract(w) {
     if (FAKE) { w.agreed = { goal: w.task, memory: w._mem || [], proof: '', handsOff: '' }; return; }
-    const out = await haiku(`A boss and a worker (${w.name}, ${w.role}) are agreeing on a task before the worker starts.\nTask: "${w.task}"\n${w._mem?.length ? `Recalled from GBrain: ${w._mem.join(' · ')}\n` : ''}\nConversation:\n${convo(w)}\n\nSummarise what they have agreed so far. Reply with only JSON: {"goal":"<one line>","memory":"<what the worker will remember/apply from GBrain or the boss, one line, or empty>","proof":"<what proof comes back, one line, or empty>","handsOff":"<what the worker must not touch or do, one line, or empty>"}`);
+    const out = await haiku(`A boss and a worker (${w.name}, ${w.role}) are agreeing on a task before the worker starts.\nTask: "${w.task}"\n${w._mem?.length ? `Recalled from GBrain: ${w._mem.join(' · ')}\n` : ''}\nConversation:\n${convo(w)}\n\nSummarise what they have agreed so far. Reply with only JSON: {"goal":"<one line>","memory":["<up to 3 short items: GBrain pages above that truly apply, by title, or preferences the boss stated>"],"proof":"<what proof comes back, one line, or empty>","handsOff":"<what the worker must not touch or do, one line, or empty>"}`);
     const j = (() => { try { return JSON.parse(out.match(/\{[\s\S]*\}/)?.[0] || ''); } catch { return null; } })();
-    if (j && w.phase === 'talking') { w.agreed = { goal: String(j.goal || ''), memory: [...(w._mem || []), ...(j.memory ? [String(j.memory)] : [])], proof: String(j.proof || ''), handsOff: String(j.handsOff || '') }; changed(); }
+    if (j && w.phase === 'talking') { w.agreed = { goal: String(j.goal || ''), memory: (Array.isArray(j.memory) ? j.memory : j.memory ? [j.memory] : []).map(String).filter(Boolean).slice(0, 4), proof: String(j.proof || ''), handsOff: String(j.handsOff || '') }; changed(); }
   }
   async function turn(w, text) {
     if (w._talkBusy) { (w._talkQ ||= []).push(text); return; }
