@@ -1036,7 +1036,8 @@ function openHire(targetId){
 }
 let brainOpen = false, brainBusy = false, gbrainOn = false;
 const brainChat = [];
-function openBrain(){
+function openBrain(raw){
+  if (!raw && window.__throne?.openMemory) return window.__throne.openMemory();
   brainOpen = true;
   openModal(`<h2>The brain</h2>
     <div class="role" id="brain-status"></div>
@@ -1369,7 +1370,7 @@ const HOOKS = {msg:[], draw:[], drawTop:[], stats:[]};
 window.__throne = { openChat: id => openChat(id), state: () => S,
   on: (type, fn) => HOOKS.msg.push({type, fn}), onDraw: fn => HOOKS.draw.push(fn), onDrawTop: fn => HOOKS.drawTop.push(fn),
   get ctx(){ return ctx; }, get simT(){ return simT; }, get me(){ return ME; }, get bosses(){ return BOSS_LIST; },
-  iso, rr, poly, box, esc, md, toast, send, openModal, closeModal, byId, DESKS, seatOf, sprites, G, KIND_COLOR, wallPt, recallBeam, onKnows, showPin, flyLesson, say, goTo, C, $ };
+  brainRules: () => { brainOpen = true; renderBrain(); }, openBrain: () => openBrain(true), iso, rr, poly, box, esc, md, toast, send, openModal, closeModal, byId, DESKS, seatOf, sprites, G, KIND_COLOR, wallPt, recallBeam, onKnows, showPin, flyLesson, say, goTo, C, $ };
 renderLine();
 connect();
 requestAnimationFrame(frame);
