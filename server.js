@@ -340,7 +340,7 @@ const rulesText = () => state.rules.length
   : 'The boss has not set any standing rules yet.';
 // A short label for the desk bubbles: the rule's first clause.
 function ruleLabel(text) {
-  let t = String(text).split(/[.;:!\n]| - | — /)[0].replace(/^(new rule|rule|always|please)[:,]?\s*/i, '').trim();
+  let t = String(text).replace(/^\s*(new rule|rule|always|please)\s*[:,-]?\s*/i, '').split(/[.;:!\n]| - | — /)[0].trim();
   if (t.length > 30) t = t.slice(0, 30).replace(/\s+\S*$/, '') + '…';
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
