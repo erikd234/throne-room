@@ -66,6 +66,7 @@ for (const f of ['.zshenv', '.zprofile', '.zshrc', '.zlogin']) {
   fs.writeFileSync(path.join(ZDOT, f), `[ -f "${realZ}/${f}" ] && ZDOTDIR="${realZ}" source "${realZ}/${f}"\nZDOTDIR="${ZDOT}"${tail}\n`);
 }
 const WORKER_ENV = { ...BASE_ENV, PATH: `${SHIM_DIR}:${BASE_ENV.PATH || ''}`, ZDOTDIR: ZDOT, THRONE_WORKER: '1' };
+const TALK = {}; // talk-first hooks, set by features/talk-first.js
 const LINE_PHASES = new Set(['asking', 'done', 'pr_ready', 'pr_failing']);
 // Workers run with permissions bypassed inside their worktree. Anything that
 // publishes or merges goes through the throne instead.
@@ -469,10 +470,10 @@ async function pickRepo(task) {
 }
 
 /* ---------------- worker actions ---------------- */
-async function hire({ role = 'engineer', name, repo, task, skills: extraSkills, agent = 'claude' }, boss = BOSSES.erik) {
+async function hire({ role = 'engineer', name, repo, task, skills: extraSkills, agent = 'claude', talkFirst = false }, boss = BOSSES.erik) {
   if (!['claude', 'codex', 'qm'].includes(agent)) throw new Error('Pick Claude, Codex, or QM.');
   if (!task || !task.trim()) throw new Error('Give the worker a task first.');
-  if (agent === 'qm') return hireQm({ role, name, task, boss });
+  if (agent === 'qm') return hireQm({ role, name, task, boss, talkFirst });
   let picked = null;
   if (!repo || !repo.trim()) { picked = await pickRepo(task); repo = picked.path; }
   let top;
@@ -518,9 +519,9 @@ async function hire({ role = 'engineer', name, repo, task, skills: extraSkills, 
     const all = await listSkills(top, 'codex');
     w.commands = all.map(x => x.name); w.skillNames = w.commands;
     const picked = skills.map(n => all.find(x => x.name === n)).filter(Boolean);
-    startSession(w, `${w.task}${picked.length ? `\n\nFor this task, read and follow these skills: ${picked.map(x => `${x.name} (${x.path})`).join(', ')}.` : ''}`);
+    (talkFirst && TALK.hold ? TALK.hold : startSession)(w, `${w.task}${picked.length ? `\n\nFor this task, read and follow these skills: ${picked.map(x => `${x.name} (${x.path})`).join(', ')}.` : ''}`);
   } else {
-    startSession(w, `${w.task}\n\nBefore you start, load the throne:present skill so you know how to show me your work.${skills.length ? ` Then use these skills for this task: ${skills.map(x => '/' + x).join(', ')}.` : ''}`);
+    (talkFirst && TALK.hold ? TALK.hold : startSession)(w, `${w.task}\n\nBefore you start, load the throne:present skill so you know how to show me your work.${skills.length ? ` Then use these skills for this task: ${skills.map(x => '/' + x).join(', ')}.` : ''}`);
   }
   return w;
 }
@@ -877,7 +878,7 @@ function qmHeader(w, memory) {
     memory.length ? `From the studio brain (GBrain), read before you start:\n${memory.map(m => `- ${m.text}`).join('\n')}` : '',
   ].filter(Boolean).join('\n\n');
 }
-async function hireQm({ role, name, task, boss }) {
+async function hireQm({ role, name, task, boss, talkFirst }) {
   if (!QM || !QM_UP) throw new Error('QM is not running. Start it with: cd ~/dev/qm && HARNESS=codex npm run dev-instance:web');
   const used = new Set(state.workers.map(w => w.desk));
   let desk = -1;
@@ -895,7 +896,7 @@ async function hireQm({ role, name, task, boss }) {
   pushLog(w, `Hired by ${boss.name} as a QM ${w.role}. Their session lives in ${boss.name}'s QM scope.`);
   chatPush(w, { role: 'boss', text: w.task, by: boss.name });
   changed();
-  startSession(w, w.task);
+  (talkFirst && TALK.hold ? TALK.hold : startSession)(w, w.task);
   return w;
 }
 function describeQm(ev) {
@@ -1239,6 +1240,7 @@ async function buildContent(w, text, atts) {
 }
 async function chat(w, m) {
   if (!w) throw new Error('That worker is gone.');
+  if (w.phase === 'talking' && TALK.chat) return TALK.chat(w, m);
   if (w.agent !== 'qm' && (!w.worktree || w.phase === 'setup')) throw new Error(`${w.name} is still setting up.`);
   const text = String(m.text || '').trim();
   const atts = (m.attachments || []).filter(a => a && typeof a.path === 'string' && path.resolve(a.path).startsWith(UPLOAD_DIR + path.sep) && fs.existsSync(a.path));
@@ -1515,7 +1517,7 @@ wss.on('connection', (ws, req) => {
 // Feature modules: features/*.js export default (api) => {}. They add actions, routes,
 // and connect-time payloads without touching this file.
 const FEATURE_FILES = () => { try { return fs.readdirSync(path.join(PUBLIC, 'features')).filter(f => f.endsWith('.js')).sort(); } catch { return []; } };
-const FEATURE_API = { state, ACTIONS, ROUTES, CONNECT, emit, changed, byId, BOSSES, BRAIN_CACHE, GRAPH, brainPut, brainSearch, recall, teach, chatPush, pushLog, bossOf, get QM() { return QM; }, get QM_UP() { return QM_UP; }, get GBRAIN() { return GBRAIN; }, BR, FAKE, HOME, ROOT, EXAMPLE };
+const FEATURE_API = { TALK, startSession, setPhase, qmHeader, WORKER_ENV, query, state, ACTIONS, ROUTES, CONNECT, emit, changed, byId, BOSSES, BRAIN_CACHE, GRAPH, brainPut, brainSearch, recall, teach, chatPush, pushLog, bossOf, get QM() { return QM; }, get QM_UP() { return QM_UP; }, get GBRAIN() { return GBRAIN; }, BR, FAKE, HOME, ROOT, EXAMPLE };
 for (const f of (() => { try { return fs.readdirSync(path.join(ROOT, 'features')).filter(f => f.endsWith('.js')).sort(); } catch { return []; } })()) {
   try { (await import(path.join(ROOT, 'features', f))).default(FEATURE_API); console.log(`Feature: ${f}`); } catch (e) { console.log(`Feature ${f} failed: ${e.message}`); }
 }
