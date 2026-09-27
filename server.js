@@ -480,8 +480,8 @@ async function hire({ role = 'engineer', name, repo, task, skills: extraSkills, 
   catch { throw new Error(`${repo} is not a git repository.`); }
   // Claim a desk synchronously, right before the worker is added, so parallel hires can't collide.
   const used = new Set(state.workers.map(w => w.desk));
-  let desk = -1;
-  for (let i = 0; i < DESK_COUNT; i++) if (!used.has(i)) { desk = i; break; }
+  let desk = HIRE.pickDesk ? HIRE.pickDesk(role || 'support', used) : -1;
+  if (desk < 0) for (let i = 0; i < DESK_COUNT; i++) if (!used.has(i)) { desk = i; break; }
   if (desk < 0) throw new Error('Every desk is taken. Let someone go first.');
   const id = ++state.seq;
   const w = {
@@ -491,6 +491,7 @@ async function hire({ role = 'engineer', name, repo, task, skills: extraSkills, 
     sessionId: null, question: null, review: null, pr: null, shipped: 0, hiredBy: boss.name, owner: boss.id,
   };
   state.workers.push(w);
+  HIRE.onHire?.(w);
   state.repos = [top, ...state.repos.filter(r => r !== top)].slice(0, 50);
   pushLog(w, `Hired as ${role} for ${w.repoName}.`);
   changed();
@@ -880,8 +881,8 @@ function qmHeader(w, memory) {
 async function hireQm({ role, name, task, boss }) {
   if (!QM || !QM_UP) throw new Error('QM is not running. Start it with: cd ~/dev/qm && HARNESS=codex npm run dev-instance:web');
   const used = new Set(state.workers.map(w => w.desk));
-  let desk = -1;
-  for (let i = 0; i < DESK_COUNT; i++) if (!used.has(i)) { desk = i; break; }
+  let desk = HIRE.pickDesk ? HIRE.pickDesk(role || 'support', used) : -1;
+  if (desk < 0) for (let i = 0; i < DESK_COUNT; i++) if (!used.has(i)) { desk = i; break; }
   if (desk < 0) throw new Error('Every desk is taken. Let someone go first.');
   const id = ++state.seq;
   const w = {
@@ -892,6 +893,7 @@ async function hireQm({ role, name, task, boss }) {
     qmThread: `web:${boss.id}:throne-${id}-${Date.now().toString(36)}`, commands: [], skillNames: [],
   };
   state.workers.push(w);
+  HIRE.onHire?.(w);
   pushLog(w, `Hired by ${boss.name} as a QM ${w.role}. Their session lives in ${boss.name}'s QM scope.`);
   chatPush(w, { role: 'boss', text: w.task, by: boss.name });
   changed();
@@ -918,7 +920,7 @@ async function qmRun(w, prompt, ac) {
   while (input) {
     turns++;
     const memory = await recall(w, input);
-    const q = await QM.turn({ principal: boss.id, name: boss.name, threadRef: w.qmThread, text: input, header: qmHeader(w, memory) });
+    const q = await QM.turn({ principal: boss.id, name: boss.name, threadRef: w.qmThread, text: input, header: qmHeader(w, memory), conversation: w.qmConversation });
     w.qmRunId = q.runId;
     let failed = null;
     await QM.stream(q.runId, boss.id, async ev => {
@@ -1515,7 +1517,9 @@ wss.on('connection', (ws, req) => {
 // Feature modules: features/*.js export default (api) => {}. They add actions, routes,
 // and connect-time payloads without touching this file.
 const FEATURE_FILES = () => { try { return fs.readdirSync(path.join(PUBLIC, 'features')).filter(f => f.endsWith('.js')).sort(); } catch { return []; } };
-const FEATURE_API = { state, ACTIONS, ROUTES, CONNECT, emit, changed, byId, BOSSES, BRAIN_CACHE, GRAPH, brainPut, brainSearch, recall, teach, chatPush, pushLog, bossOf, get QM() { return QM; }, get QM_UP() { return QM_UP; }, get GBRAIN() { return GBRAIN; }, BR, FAKE, HOME, ROOT, EXAMPLE };
+// Feature hooks into hiring: pickDesk(role, usedDesks) → desk index or -1; onHire(worker) before its session starts.
+const HIRE = {};
+const FEATURE_API = { HIRE, DESK_COUNT, state, ACTIONS, ROUTES, CONNECT, emit, changed, byId, BOSSES, BRAIN_CACHE, GRAPH, brainPut, brainSearch, recall, teach, chatPush, pushLog, bossOf, get QM() { return QM; }, get QM_UP() { return QM_UP; }, get GBRAIN() { return GBRAIN; }, BR, FAKE, HOME, ROOT, EXAMPLE };
 for (const f of (() => { try { return fs.readdirSync(path.join(ROOT, 'features')).filter(f => f.endsWith('.js')).sort(); } catch { return []; } })()) {
   try { (await import(path.join(ROOT, 'features', f))).default(FEATURE_API); console.log(`Feature: ${f}`); } catch (e) { console.log(`Feature ${f} failed: ${e.message}`); }
 }
