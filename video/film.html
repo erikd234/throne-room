@@ -1,0 +1,1271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Throne demo film</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+:root{--ink:#2A2536;--paper:#FFFCF6;--paper2:#F3ECE0;--muted:#645B75;--gold:#E7B12F;--mint:#34B386;--rose:#E4506A;--sky:#4F8DF5;--brain:#7C5CFF;--brain2:#35E0FF}
+html,body{margin:0;background:#000;overflow:hidden}
+[hidden]{display:none!important}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:#2B2740;font-family:Nunito,system-ui,sans-serif;color:var(--ink);transform-origin:0 0}
+canvas{position:absolute;left:0;top:0}
+.layer{position:absolute;inset:0;pointer-events:none}
+.card{background:var(--paper);border:3px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 rgba(20,14,30,.55)}
+.h{font-family:Fredoka,sans-serif}
+.lbl{font:800 14px Nunito,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.av{width:40px;height:40px;border-radius:50%;border:3px solid var(--ink);display:grid;place-items:center;font:700 18px Fredoka,sans-serif;color:#fff;flex-shrink:0;box-sizing:border-box}
+.tag{display:inline-block;font:900 12px Nunito,sans-serif;text-transform:uppercase;letter-spacing:.06em;padding:3px 9px;border-radius:6px;color:#fff}
+.chip{display:inline-flex;align-items:center;gap:8px;border:3px solid var(--ink);border-radius:999px;padding:5px 14px;font:800 16px Nunito,sans-serif;background:var(--paper2)}
+.btn{display:inline-flex;align-items:center;gap:10px;border:3px solid var(--ink);background:var(--paper);border-radius:12px;padding:12px 20px;font:600 21px Fredoka,sans-serif;color:var(--ink);box-shadow:0 4px 0 var(--ink);position:relative}
+.btn.press{top:4px;box-shadow:0 0 0 var(--ink);filter:brightness(.92)}
+.gold{background:var(--gold)}.go{background:#9FE3C4}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
+/* chaos */
+#chaos{background:#0B0B10;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);gap:10px;padding:10px;box-sizing:border-box}
+.term{background:#14131B;border:1px solid #2C2A38;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;transform-origin:center}
+.term .tb{height:26px;background:#1F1D29;display:flex;align-items:center;gap:6px;padding:0 10px;font:700 12px 'JetBrains Mono',monospace;color:#8C87A0}
+.term .tb i{width:10px;height:10px;border-radius:50%;background:#3A3748;display:inline-block}
+.term pre{margin:0;padding:8px 10px;font:500 13px/1.45 'JetBrains Mono',monospace;color:#B9B4CC;white-space:pre-wrap;flex:1;overflow:hidden}
+.term .warn{color:#FFB35C}.term .err{color:#FF6B81}.term .ok{color:#7FE0A8}.term .ask{color:#0B0B10;background:#FFE08A}
+/* captions */
+#cap{position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;pointer-events:none}
+#cap .c{max-width:1400px;background:rgba(20,16,30,.86);color:#FFFCF6;border-radius:18px;padding:14px 26px;font:800 36px/1.25 Nunito,sans-serif;text-align:center;letter-spacing:-.005em;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+#cap .who{display:inline-block;font:700 22px Fredoka,sans-serif;padding:3px 12px;border-radius:9px;margin-right:12px;vertical-align:4px;color:#2A2536}
+#cap .hl{color:#FFD35C}
+#cap .hb{color:#9FEFFF}
+/* big slam */
+#slam{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+#slam div{font:700 260px/1 Fredoka,sans-serif;color:#fff;letter-spacing:.02em;text-shadow:0 0 40px #35E0FF,0 0 90px #7C5CFF,0 10px 0 #2A2536}
+/* pip */
+#pipwrap{position:absolute;right:36px;top:118px;width:672px;height:420px;border:4px solid var(--ink);border-radius:18px;overflow:hidden;background:#2B2740;box-shadow:0 10px 0 rgba(20,14,30,.55)}
+#pipwrap .pl{position:absolute;left:12px;top:12px;display:flex;gap:8px;align-items:center;background:var(--paper);border:3px solid var(--ink);border-radius:999px;padding:4px 12px 4px 4px;font:700 17px Fredoka,sans-serif}
+#fade{position:absolute;inset:0;background:#000;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="w" width="1920" height="1080"></canvas>
+  <div id="ui" class="layer"></div>
+  <div id="pipwrap" hidden><canvas id="pip" width="672" height="420"></canvas><div id="piplabel" class="pl"></div></div>
+  <div id="chaos" class="layer"></div>
+  <div id="campus" class="layer"></div>
+  <div id="slam" hidden><div>GBrain</div></div>
+  <div id="title" class="layer"></div>
+  <div id="cap"></div>
+  <div id="fade"></div>
+</div>
+<script src="cues.js"></script>
+<script>
+(function(){
+/* ================= timing ================= */
+const C = {}; CUES.forEach(c => C[c.id] = {t:c.t, d:c.dur, e:c.t + c.dur, text:c.text, who:c.who});
+const A = id => C[id].t, E = id => C[id].e;
+const END = E('close') + 3.4;
+window.FILM_END = END;
+const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
+const ease = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3)/2;
+const eout = x => 1 - Math.pow(1 - x, 3);
+const back = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3*Math.pow(x - 1, 3) + c1*Math.pow(x - 1, 2); };
+const P = (t, a, b) => clamp((t - a)/(b - a));
+const lerp = (a, b, k) => a + (b - a)*k;
+const within = (t, a, b) => t >= a && t < b;
+function keyed(t, keys){
+  if (t <= keys[0][0]) return keys[0].slice(1);
+  for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]){
+    const a = keys[i-1], b = keys[i], k = ease((t - a[0])/((b[0] - a[0]) || 1));
+    return a.slice(1).map((v, j) => lerp(v, b[j+1], k));
+  }
+  return keys[keys.length-1].slice(1);
+}
+function rng(seed){ return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0)/4294967296; }; }
+// walk: [[time, x, y], ...] in tiles; constant speed between keys
+function walk(t, pts){
+  if (t <= pts[0][0]) return {x:pts[0][1], y:pts[0][2], moving:false, fx:0, fy:1};
+  for (let i = 1; i < pts.length; i++) if (t <= pts[i][0]){
+    const a = pts[i-1], b = pts[i], k = (t - a[0])/((b[0] - a[0]) || 1);
+    const dx = b[1] - a[1], dy = b[2] - a[2], L = Math.hypot(dx, dy) || 1;
+    return {x:lerp(a[1], b[1], k), y:lerp(a[2], b[2], k), moving:L > .01, fx:dx/L, fy:dy/L};
+  }
+  const l = pts[pts.length-1]; return {x:l[1], y:l[2], moving:false, fx:l[3] ?? 0, fy:l[4] ?? 1};
+}
+// build a walk from waypoints at a speed (tiles/s)
+function route(t0, pts, speed=3.2, face){
+  const out = [[t0, pts[0][0], pts[0][1]]]; let t = t0;
+  for (let i = 1; i < pts.length; i++){ t += Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1])/speed; out.push([t, pts[i][0], pts[i][1]]); }
+  if (face) out[out.length-1].push(face[0], face[1]);
+  out.end = t; return out;
+}
+
+/* ================= world constants ================= */
+const TW = 64, TH = 32, N = 20, WALL = 150;
+const iso = (x, y, z=0) => ({x:(x - y)*TW/2, y:(x + y)*TH/2 - z});
+const COL = {floorA:'#D9B88A', floorB:'#D1AE7F', seam:'#BF9A6A', wallR:'#B6D1D6', wallTop:'#6D8B96', base:'#5E7A85', sky:'#CBE8F7', frame:'#F7F2E8',
+  carpet:'#B8383C', carpetEdge:'#E7B12F', deskTop:'#A0704A', deskL:'#7C5334', deskR:'#684429', mon:'#2E3140', on:'#7FD3FF', off:'#454B5E',
+  chair:'#3E4458', gold:'#E7B12F', goldD:'#B98714', velvet:'#7B2D5A', velvetD:'#5E2044', pants:'#3A3F55', shoe:'#26222F'};
+const ROLE = {eng:'#4F8DF5', des:'#EE77AE', qa:'#34B386', res:'#F29D38', ops:'#9B7BEA', mkt:'#FF7A59', sup:'#2BB5A8', evt:'#B77CFF', fin:'#2EAD6B'};
+const DESKS = [[8,3],[11,3],[14,3],[17,3],[11,7],[14,7],[17,7],[14,11],[3,8],[3,11],[3,14],[3,17],[7,11],[7,14],[7,17],[11,14],[11,17]];
+const seatOf = (d) => ({x:d[0] + .5, y:d[1] + 1.35});
+const monOf = (d) => iso(d[0] + .5, d[1] + .26, 41);
+const QS = i => ({x:4.35 + i*.92, y:4.35 + i*.92});
+const AUD = {x:5.3, y:3.35};              // audience spot beside the throne
+const DOOR = {x:17.25, y:.45};
+const VAULT = {x:18.25, y:18.25};
+
+// seated staff: desk, name, role, repo, skin, hair, state, progress
+const STAFF = [
+  [[8,3],'Ada','eng','parrot','#F2C9A0','#5A3A24','work',.62],
+  [[11,3],'Linus','eng','parrot','#E0A77A','#D9A54A','work',.34],
+  [[14,3],'Barbara','eng','parrot','#9C6440','#2B2233','work',.55],
+  [[17,3],'Ken','qa','parrot','#C98B5E','#3D3D3D','work',.2],
+  [[11,7],'Grace','des','parrot','#F6D6B8','#B5452F','work',.76],
+  [[14,7],'Tim','eng','podcast','#F2C9A0','#8C5A2B','work',.12],
+  [[14,11],'Alan','des','throne','#E0A77A','#2B2233','work',.5],
+  [[3,8],'Radia','mkt','marketing','#6E4430','#2B2233','work',.45],
+  [[3,17],'Sam','sup','support','#F2C9A0','#3D3D3D','work',.22],
+  [[3,14],'Hedy','sup','support','#F6D6B8','#8C5A2B','work',.4],
+  [[7,11],'Frances','evt','events','#C98B5E','#E8E0D0','work',.8],
+  [[7,14],'Dennis','evt','events','#E0A77A','#5A3A24','work',.3],
+];
+const PARROT_DESKS = STAFF.filter(s => s[3] === 'parrot').map(s => s[0]);
+const CLIMAX_DESKS = [[8,3],[11,3],[14,3],[17,3],[11,7]];
+const TEAM_COL = {parrot:'#4F8DF5', marketing:'#FF7A59', support:'#2BB5A8', events:'#B77CFF', podcast:'#4F8DF5', throne:'#EE77AE', finance:'#2EAD6B'};
+const ZONES = [
+  {name:'Marketing', col:'#FF7A59', rects:[[2.35,7.5,4.95,13.4]], sign:[2.6,7.7]},
+  {name:'Support', col:'#2BB5A8', rects:[[2.35,13.6,4.95,19.75]], sign:[2.6,13.8]},
+  {name:'Events', col:'#B77CFF', rects:[[6.35,10.5,8.75,16.3]], sign:[6.6,10.7]},
+  {name:'Engineering', col:'#4F8DF5', rects:[[7.6,2.3,19.8,9.8],[9.7,9.8,19.8,12.5]], sign:[9.7,2.6]},
+];
+const FIN = {name:'Finance', col:'#2EAD6B', rects:[[15.5,12.85,19.8,15.25]], sign:[19.7,12.95]};
+const FIN_DESKS = [[16,13],[18.2,13]];
+const KIOSK = {x:17.15, y:11.45};
+const T_AREA = () => A('area'), T_RING = () => A('auto') + 4.4;
+function hexA(hex, a){ const n = parseInt(hex.slice(1), 16); return `rgba(${n>>16},${n>>8&255},${n&255},${a})`; }
+function drawZone(z, k=1){
+  z.rects.forEach(([x0, y0, x1, y1]) => {
+    const yy = y0 + (y1 - y0)*k, pts = [iso(x0,y0), iso(x1,y0), iso(x1,yy), iso(x0,yy)];
+    poly(pts, hexA(z.col, .2));
+    g.setLineDash([9, 6]); poly(pts, null, hexA(z.col, .85), 2.5); g.setLineDash([]);
+  });
+}
+function drawNewArea(t){
+  const t0 = T_AREA() + .05, t1 = T_AREA() + 1.05;
+  if (t < t0 || t > t1) return;
+  const k = eout(P(t, t0, t0 + .3)), [x0, y0, x1, y1] = FIN.rects[0];
+  g.globalAlpha = k; poly([iso(x0,y0), iso(x1,y0), iso(x1,y1), iso(x0,y1)], 'rgba(255,255,255,.28)');
+  g.setLineDash([10, 7]); poly([iso(x0,y0), iso(x1,y0), iso(x1,y1), iso(x0,y1)], null, '#FFFFFF', 3); g.setLineDash([]);
+  const c = iso((x0 + x1)/2, (y0 + y1)/2), press = t > T_AREA() + .85 ? .92 : 1;
+  g.save(); g.translate(c.x, c.y); g.scale(press, press);
+  g.font = '700 20px Fredoka, sans-serif'; const w = g.measureText('+ New area').width + 36;
+  g.fillStyle = '#FFFCF6'; g.strokeStyle = '#2A2536'; g.lineWidth = 3; rr(-w/2, -20, w, 40, 20); g.fill(); g.stroke();
+  g.fillStyle = '#2A2536'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('+ New area', 0, 1); g.textBaseline = 'alphabetic';
+  g.restore(); g.globalAlpha = 1;
+}
+function drawSign(z, k=1){
+  const [sx, sy] = z.sign, base = iso(sx, sy), top = iso(sx, sy, 64*k);
+  g.strokeStyle = '#6B4A34'; g.lineWidth = 4; g.beginPath(); g.moveTo(base.x, base.y); g.lineTo(top.x, top.y); g.stroke();
+  const b = iso(sx, sy, 80*k);
+  g.save(); g.translate(b.x, b.y); g.scale(k, k);
+  g.font = '700 17px Fredoka, sans-serif'; const w = g.measureText(z.name).width + 30;
+  g.fillStyle = z.col; g.strokeStyle = '#2A2536'; g.lineWidth = 3; rr(-w/2, -17, w, 34, 9); g.fill(); g.stroke();
+  g.fillStyle = '#FFFFFF'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(z.name, 0, 1); g.textBaseline = 'alphabetic';
+  g.restore();
+}
+function drawKiosk(t){
+  const k = back(P(t, A('auto') + .1, A('auto') + .6)); if (P(t, A('auto') + .1, A('auto') + .6) <= 0) return;
+  const x = KIOSK.x, y = KIOSK.y, ring = within(t, T_RING(), T_RING() + 1.6), sh = ring ? Math.sin(t*50)*2.5 : 0;
+  box(x + .15, y + .15, .3, .3, 46*k, 0, '#5B5670', '#4A4560', '#3E3A52');
+  const c = iso(x + .3, y + .3, 66*k);
+  g.save(); g.translate(c.x + sh, c.y); g.scale(k, k);
+  g.fillStyle = '#FFFCF6'; g.strokeStyle = '#2A2536'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 19, 0, 7); g.fill(); g.stroke();
+  g.strokeStyle = '#2A2536'; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -12); g.moveTo(0, 0); g.lineTo(9, 0); g.stroke();
+  g.fillStyle = '#E7B12F'; g.beginPath(); g.arc(-15, -18, 6, 0, 7); g.arc(15, -18, 6, 0, 7); g.fill(); g.stroke();
+  if (ring){ g.strokeStyle = '#FFD35C'; g.lineWidth = 3; [[-30, -24, -38, -30], [30, -24, 38, -30], [-30, 0, -40, 0], [30, 0, 40, 0]].forEach(([a, b2, c2, d]) => { g.beginPath(); g.moveTo(a, b2); g.lineTo(c2, d); g.stroke(); }); }
+  g.restore();
+  label(c.x - 42, c.y - 30, 'Automations', '#FFFFFF', 12, 900);
+  // the ticket pops out when it rings, then waits for someone to take it
+  const tr = T_RING() + .25, grab = ACT.grab ?? 1e9;
+  if (t > tr && t < grab){
+    const q = back(P(t, tr, tr + .35)), p = iso(x + .3, y + .3, 66 + 44*eout(P(t, tr, tr + .5)));
+    g.save(); g.translate(p.x, p.y + Math.sin(t*4)*3); g.scale(q, q); ticket(0, 0); g.restore();
+    if (t < tr + 2.5) bubble(p.x, p.y - 26, 'Monthly close · 1st, 09:00', '#D9FFE9', 13);
+  }
+}
+function ticket(x, y){
+  g.fillStyle = '#FFFFFF'; g.strokeStyle = '#2A2536'; g.lineWidth = 2; rr(x - 16, y - 11, 32, 22, 3); g.fill(); g.stroke();
+  g.fillStyle = '#2EAD6B'; g.fillRect(x - 16 + 1, y - 10, 30, 6);
+  g.fillStyle = '#2A2536'; g.fillRect(x - 10, y + 1, 20, 2.5); g.fillRect(x - 10, y + 6, 13, 2.5);
+}
+
+/* ================= GBrain wall graph ================= */
+const BR = {u0:1.4, u1:18.6, v0:18, v1:140};
+const brainNodes = [];
+const TYPE = {person:'#FF8FC8', repo:'#7FB2FF', decision:'#FFD35C', lesson:'#7FF0B0', company:'#FFB070', topic:'#C9B8FF'};
+{
+  const named = [
+    ['Erik','person',4.2,112],['Bill Land','person',6.4,122],['parrot','repo',9.6,96],['paywall','topic',5.2,84],['streaks','topic',12.2,78],
+    ['UTC+13','topic',13.8,58],['QM','company',8.4,128],['@/ui/colors','decision',3.4,60],['Temporal','topic',16.4,104],['macbridge','repo',15.6,40],
+    ['one-app','repo',11.4,34],['Ada','person',10.6,58],['GBrain','company',12.8,120],['Joan','person',7.6,42],['launch voice: short','lesson',2.8,96],
+  ];
+  named.forEach(([label, type, u, v]) => brainNodes.push({label, type, u, v, named:true}));
+  const r = rng(7), types = Object.keys(TYPE);
+  for (let i = 0; i < 64; i++) brainNodes.push({type:types[Math.floor(r()*types.length)], u:lerp(BR.u0 + .6, BR.u1 - .6, r()), v:lerp(BR.v0 + 10, BR.v1 - 8, r()), named:false, ph:r()*6.28});
+  brainNodes.forEach((n, i) => { n.i = i; n.ph = n.ph ?? i; });
+}
+const brainEdges = [];
+brainNodes.forEach((a, i) => {
+  const near = brainNodes.map((b, j) => ({j, d:(a.u - b.u)**2*900 + (a.v - b.v)**2})).filter(o => o.j !== i).sort((p, q) => p.d - q.d).slice(0, 2);
+  near.forEach(o => { if (!brainEdges.some(e => (e[0] === o.j && e[1] === i))) brainEdges.push([i, o.j]); });
+});
+const nodeIdx = name => brainNodes.findIndex(n => n.label === name);
+const nodePos = n => iso(0, n.u, n.v);
+// nodes added during the film
+const T_WRITE = () => A('write') + .5, T_BILLRULE = () => A('climax') + .15;
+const LESSON = {label:'UTC+13 breaks rollover', type:'lesson', u:11.8, v:66, links:['streaks','UTC+13','Ada','parrot'], at:() => T_WRITE() + 1.3};
+const RULE = {label:'📌 No parrot merges on Fridays', type:'decision', u:7.4, v:106, links:['Bill Land','parrot','Erik','QM'], at:() => T_BILLRULE() + 1.25};
+
+/* ================= drawing ================= */
+const cv = document.getElementById('w'), ctx = cv.getContext('2d');
+let g = ctx;
+function poly(pts, fill, stroke, lw=1){ g.beginPath(); g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y); g.closePath(); if (fill){ g.fillStyle = fill; g.fill(); } if (stroke){ g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(); } }
+function box(x, y, w, d, h, z, top, left, right, stroke){
+  poly([iso(x,y+d,z), iso(x+w,y+d,z), iso(x+w,y+d,z+h), iso(x,y+d,z+h)], left, stroke);
+  poly([iso(x+w,y,z), iso(x+w,y+d,z), iso(x+w,y+d,z+h), iso(x+w,y,z+h)], right, stroke);
+  poly([iso(x,y,z+h), iso(x+w,y,z+h), iso(x+w,y+d,z+h), iso(x,y+d,z+h)], top, stroke);
+}
+function rr(x, y, w, h, r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+const wq = (side, a, b, z0, z1) => side === 'R' ? [iso(a,0,z0), iso(b,0,z0), iso(b,0,z1), iso(a,0,z1)] : [iso(0,a,z0), iso(0,b,z0), iso(0,b,z1), iso(0,a,z1)];
+function shade(hex, amt){ const n = parseInt(hex.slice(1), 16); const f = v => Math.max(0, Math.min(255, Math.round(v + (amt < 0 ? v*amt : (255 - v)*amt)))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; }
+
+function drawRoom(t){
+  // right wall with windows, whiteboard, door
+  poly(wq('R', 0, N, 0, WALL), COL.wallR); poly(wq('R', 0, N, 0, 10), COL.base);
+  const win = (a, b) => { poly(wq('R', a, b, 46, 118), COL.frame); poly(wq('R', a+.12, b-.12, 51, 113), COL.sky); const m = (a+b)/2; poly(wq('R', m-.04, m+.04, 51, 113), COL.frame); poly(wq('R', a+.12, b-.12, 81, 84), COL.frame); };
+  win(2.5, 4.5); win(6.5, 8.5);
+  poly(wq('R', 11, 14.4, 50, 118), '#FFFFFF', '#8A8FA0', 2);
+  [[11.4,13.2,104,'#4F8DF5'],[11.4,12.6,92,'#E4506A'],[11.4,13.8,80,'#34B386'],[11.4,12.9,68,'#F29D38']].forEach(([a,b,z,c]) => { const p1 = iso(a,0,z), p2 = iso(b,0,z); g.strokeStyle = c; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(p1.x,p1.y); g.lineTo(p2.x,p2.y); g.stroke(); });
+  poly(wq('R', 16.6, 17.9, 0, 94), '#6B4A34', '#3E2A1D', 2);
+  // left wall = GBrain wall
+  drawBrainWall(t);
+  g.lineCap = 'round'; g.strokeStyle = COL.wallTop; g.lineWidth = 6;
+  let a = iso(0,N,WALL), b = iso(0,0,WALL), c = iso(N,0,WALL);
+  g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.lineTo(c.x,c.y); g.stroke();
+  // floor
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) poly([iso(x,y), iso(x+1,y), iso(x+1,y+1), iso(x,y+1)], (x+y) % 2 ? COL.floorA : COL.floorB);
+  g.strokeStyle = COL.seam; g.lineWidth = 1; g.globalAlpha = .35;
+  for (let x = 0; x <= N; x++){ a = iso(x,0); b = iso(x,N); g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.stroke(); }
+  g.globalAlpha = 1;
+  poly([iso(0,N), iso(N,N), iso(N,N,-16), iso(0,N,-16)], '#8E6C48');
+  poly([iso(N,0), iso(N,N), iso(N,N,-16), iso(N,0,-16)], '#7A5B3C');
+  ZONES.forEach(z => drawZone(z));
+  if (t > T_AREA() + .9) drawZone(FIN, eout(P(t, T_AREA() + .9, T_AREA() + 1.5)));
+  drawNewArea(t);
+  const s0 = 3.4, s1 = 17.6, w = .8;
+  poly([iso(s0+w, s0-w), iso(s1+w, s1-w), iso(s1-w, s1+w), iso(s0-w, s0+w)], COL.carpet, COL.carpetEdge, 2.5);
+}
+
+function brainGlow(t){ return .55 + .45*Math.sin(t*2.1); }
+function drawBrainWall(t){
+  // base wall and a big dark screen
+  poly(wq('L', 0, N, 0, WALL), '#8FAAB5'); poly(wq('L', 0, N, 0, 10), COL.base);
+  poly(wq('L', BR.u0 - .3, BR.u1 + .3, BR.v0 - 8, BR.v1 + 6), '#1B1530', '#2A2536', 3);
+  const scr = wq('L', BR.u0, BR.u1, BR.v0, BR.v1);
+  g.save(); poly(scr, '#120E24'); g.clip();
+  // subtle scanline gradient
+  const gr = g.createLinearGradient(scr[0].x, scr[0].y, scr[1].x, scr[1].y);
+  gr.addColorStop(0, 'rgba(124,92,255,.22)'); gr.addColorStop(1, 'rgba(53,224,255,.16)');
+  g.fillStyle = gr; g.fill();
+  const lit = brainLit(t);
+  // edges
+  g.lineWidth = 1.8;
+  brainEdges.forEach(([i, j], k) => {
+    const a = nodePos(brainNodes[i]), b = nodePos(brainNodes[j]);
+    const hot = lit[i] || lit[j];
+    g.strokeStyle = hot ? `rgba(160,240,255,${.35 + .6*Math.max(lit[i]||0, lit[j]||0)})` : `rgba(170,150,255,${.18 + .08*Math.sin(t*1.7 + k)})`;
+    g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+  });
+  // extra nodes and their auto-wiring
+  [LESSON, RULE].forEach(n => {
+    const k = P(t, n.at(), n.at() + .5); if (k <= 0) return;
+    const p = iso(0, n.u, n.v);
+    n.links.forEach((l, li) => {
+      const q = nodePos(brainNodes[nodeIdx(l)]), kk = P(t, n.at() + .2 + li*.25, n.at() + .6 + li*.25);
+      if (kk <= 0) return;
+      g.strokeStyle = 'rgba(160,255,210,.95)'; g.lineWidth = 2.4;
+      g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(lerp(p.x, q.x, kk), lerp(p.y, q.y, kk)); g.stroke();
+    });
+  });
+  // nodes
+  brainNodes.forEach(n => {
+    const p = nodePos(n), L = lit[n.i] || 0;
+    const r = (n.named ? 6 : 3.6) + .9*Math.sin(t*2.4 + n.ph) + L*5;
+    g.shadowColor = TYPE[n.type]; g.shadowBlur = 8 + L*18;
+    g.fillStyle = TYPE[n.type]; g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill();
+  });
+  g.shadowBlur = 0;
+  brainNodes.forEach(n => { if (!n.named) return; const p = nodePos(n); label(p.x + 9, p.y - 8, n.label, 'rgba(255,255,255,.95)', 13, 900); });
+  [LESSON, RULE].forEach(n => {
+    const k = P(t, n.at(), n.at() + .5); if (k <= 0) return;
+    const p = iso(0, n.u, n.v), s = back(k);
+    g.shadowColor = TYPE[n.type]; g.shadowBlur = 26;
+    g.fillStyle = TYPE[n.type]; g.beginPath(); g.arc(p.x, p.y, 7*s + 1.5*Math.sin(t*5), 0, 7); g.fill(); g.shadowBlur = 0;
+    label(p.x + 11, p.y - 9, n.label, '#B8FFD9', 12.5, 900);
+  });
+  // gap marker around Temporal
+  const tg = -99;
+  if (within(t, tg, tg + 5.4)){
+    const n = brainNodes[nodeIdx('Temporal')], p = nodePos(n), k = P(t, tg, tg + .4);
+    g.strokeStyle = `rgba(255,90,120,${.6 + .4*Math.sin(t*9)})`; g.lineWidth = 3; g.setLineDash([7, 6]);
+    g.beginPath(); g.ellipse(p.x + 10, p.y + 8, 64*k, 40*k, -.46, 0, 7); g.stroke(); g.setLineDash([]);
+  }
+  g.restore();
+  // header text on the wall
+  const hp = iso(0, 10, BR.v1 + 3);
+  g.save(); g.translate(hp.x, hp.y); g.transform(1, -.5, 0, 1, 0, 0);
+  g.font = '700 22px Fredoka, sans-serif'; g.fillStyle = '#FFFFFF'; g.textAlign = 'center'; g.fillText('GBRAIN', 0, 0);
+  g.restore();
+}
+function label(x, y, text, color, size=11, weight=800){
+  g.font = `${weight} ${size}px Nunito, sans-serif`; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.lineWidth = 3; g.strokeStyle = 'rgba(18,14,36,.85)'; g.strokeText(text, x, y); g.fillStyle = color; g.fillText(text, x, y);
+}
+
+// ---- beams: recalls from wall to desks ----
+function beamList(){
+  if (beamList.cache) return beamList.cache;
+  const r = rng(42), out = [];
+  const working = STAFF.filter(s => s[6] === 'work');
+  const topics = ['paywall colors','streak rollover','@/ui/colors','Erik prefers','CI flakes','QM swarm API','feed player','Temporal retries','Bill’s rules'];
+  // ambient beams throughout the office, dense during the GBrain spotlight
+  let t = A('tour') + .5;
+  while (t < E('climax') + 3){
+    const dense = t > A('gbrain') - .2 && t < E('write');
+    const s = working[Math.floor(r()*working.length)];
+    const n = brainNodes[Math.floor(r()*brainNodes.length)];
+    out.push({t0:t, dur:1.3, node:n, desk:s[0], label:dense && r() < .45 ? 'recall · ' + topics[Math.floor(r()*topics.length)] : null});
+    t += dense ? .28 + r()*.2 : 1.1 + r()*.9;
+  }
+  // Maya recalls Erik's preference while talking
+  out.push({t0:A('maya') + 1.2, dur:2.0, node:brainNodes[nodeIdx('Erik')], to:() => ACT.maya, label:'recall · how Erik likes launch emails', big:true});
+  // Bill's rule lights five desks, one after another
+  CLIMAX_DESKS.forEach((d, i) => out.push({t0:T_BILLRULE() + 1.9 + i*.38, dur:1.4, node:RULE, desk:d, spread:true, big:true}));
+  beamList.cache = out; return out;
+}
+function brainLit(t){
+  const lit = {};
+  beamList().forEach(b => { const k = (t - b.t0)/b.dur; if (k >= 0 && k <= 1 && b.node.i !== undefined) lit[b.node.i] = Math.max(lit[b.node.i] || 0, 1 - k); });
+  return lit;
+}
+function drawBeams(t){
+  beamList().forEach(b => {
+    const k = (t - b.t0)/b.dur; if (k < 0 || k > 1) return;
+    const a = iso(0, b.node.u, b.node.v);
+    const target = b.to ? b.to() : null;
+    const d = target ? iso(target.x, target.y, 44) : monOf(b.desk);
+    const cx = (a.x + d.x)/2, cy = Math.min(a.y, d.y) - 90;
+    const alpha = Math.sin(Math.PI*k);
+    const col = b.spread ? '127,240,176' : '53,224,255';
+    g.save(); g.shadowColor = `rgb(${col})`; g.shadowBlur = 22;
+    g.strokeStyle = `rgba(${col},${.95*alpha})`; g.lineWidth = b.big ? 5.5 : 3.6;
+    g.beginPath(); g.moveTo(a.x, a.y); g.quadraticCurveTo(cx, cy, d.x, d.y); g.stroke();
+    const q = eout(clamp(k*1.25)), x = (1-q)*(1-q)*a.x + 2*(1-q)*q*cx + q*q*d.x, y = (1-q)*(1-q)*a.y + 2*(1-q)*q*cy + q*q*d.y;
+    g.fillStyle = '#FFFFFF'; g.beginPath(); g.arc(x, y, b.big ? 8 : 5.5, 0, 7); g.fill();
+    g.restore();
+    if (b.label && k < .85){
+      g.font = '900 13px Nunito, sans-serif'; const tw = g.measureText(b.label).width + 18;
+      const lx = cx - tw/2, ly = cy + 20;
+      g.globalAlpha = alpha; g.fillStyle = 'rgba(18,14,36,.9)'; rr(lx, ly, tw, 24, 12); g.fill();
+      g.strokeStyle = 'rgba(53,224,255,.9)'; g.lineWidth = 1.5; g.stroke();
+      g.fillStyle = '#BFF6FF'; g.textAlign = 'left'; g.fillText(b.label, lx + 9, ly + 17); g.globalAlpha = 1;
+    }
+  });
+}
+
+// ---- furniture ----
+function drawDesk(d, on, t){
+  box(d[0]+.05, d[1]+.12, .9, .62, 24, 0, COL.deskTop, COL.deskL, COL.deskR);
+  box(d[0]+.42, d[1]+.3, .16, .1, 6, 24, COL.mon, COL.mon, COL.mon);
+  const flash = flashAt(d, t);
+  box(d[0]+.18, d[1]+.22, .64, .08, 22, 30, COL.mon, flash ? '#B8FFD9' : on ? COL.on : COL.off, COL.mon);
+  if (on && Math.sin(t*9 + d[0]*3 + d[1]) > .2){ const p = iso(d[0]+.5, d[1]+.3, 41); g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(p.x - 6, p.y, 9, 1.5); }
+  box(d[0]+.3, d[1]+.5, .4, .14, 2, 24, '#D8D2C6', '#B9B2A5', '#A9A294');
+  box(d[0]+.8, d[1]+.2, .1, .1, 7, 24, '#E4506A', '#C23B53', '#A93248');
+  const c = seatOf(d); box(c.x-.22, c.y-.1, .44, .38, 12, 0, COL.chair, '#30354A', '#2A2E40');
+}
+function deskTag(d, team){
+  if (!team) return;
+  const p = iso(d[0] + .5, d[1] + 2.1);
+  g.font = '900 11px Nunito, sans-serif'; const w = g.measureText(team).width + 22;
+  g.fillStyle = 'rgba(42,37,54,.88)'; rr(p.x - w/2, p.y - 8, w, 16, 8); g.fill();
+  g.fillStyle = TEAM_COL[team] || '#fff'; g.beginPath(); g.arc(p.x - w/2 + 9, p.y, 3.5, 0, 7); g.fill();
+  g.fillStyle = '#FFFCF6'; g.textAlign = 'left'; g.fillText(team, p.x - w/2 + 16, p.y + 4);
+}
+function flashAt(d, t){
+  return beamList().some(b => b.spread && b.desk === d && t > b.t0 + b.dur*.7 && t < b.t0 + b.dur*.7 + .5);
+}
+function drawThrone(){
+  box(.8,.8,3.2,3.2,10,0,'#8C3239','#6E262C','#5E2026','#4A1A1F');
+  box(1.1,1.1,2.6,2.6,12,10,COL.carpet,'#8F2B30','#7A2429');
+  box(1.9,1.9,1.3,1.3,16,22,COL.velvet,COL.velvetD,COL.velvetD);
+  box(1.75,1.75,1.6,.3,70,22,COL.gold,COL.goldD,COL.goldD);
+  box(1.75,1.75,.3,1.6,70,22,COL.gold,COL.goldD,COL.goldD);
+  box(1.95,1.95,1.2,.12,58,30,COL.velvet,COL.velvet,COL.velvetD);
+  box(1.95,1.95,.12,1.2,58,30,COL.velvet,COL.velvetD,COL.velvet);
+  box(3.05,1.75,.3,.3,34,22,COL.gold,COL.goldD,COL.goldD);
+  box(1.75,3.05,.3,.3,34,22,COL.gold,COL.goldD,COL.goldD);
+  const p = iso(1.9,1.9,96); g.fillStyle = COL.gold; g.beginPath(); g.arc(p.x, p.y, 5, 0, 7); g.fill();
+}
+const BT = {x:5.25, y:.65};           // Bill's throne origin (tiles)
+const T_BTHRONE = () => A('multi') + 1.0;
+function drawBillThrone(t){
+  if (P(t, T_BTHRONE(), T_BTHRONE() + .6) <= 0) return;
+  const k = Math.max(.01, back(P(t, T_BTHRONE(), T_BTHRONE() + .6)));
+  const x = BT.x, y = BT.y, h = v => v*k;
+  box(x - .2, y - .1, 2.6, 2.6, h(10), 0, '#1F7F7A', '#17635F', '#135350', '#0E3F3D');
+  box(x + .5, y + .5, 1.1, 1.1, h(14), h(10), '#1F9E97', '#17635F', '#17635F');
+  box(x + .35, y + .35, 1.4, .26, h(58), h(10), '#D8E2EA', '#AFBCC7', '#AFBCC7');
+  box(x + .35, y + .35, .26, 1.4, h(58), h(10), '#D8E2EA', '#AFBCC7', '#AFBCC7');
+  box(x + .55, y + .55, 1.0, .1, h(46), h(18), '#1F9E97', '#1F9E97', '#17635F');
+  box(x + .55, y + .55, .1, 1.0, h(46), h(18), '#1F9E97', '#17635F', '#1F9E97');
+  // name sign
+  const p = iso(x + .9, y + .9, h(150));
+  g.save(); g.translate(p.x, p.y); g.scale(k, k);
+  g.fillStyle = '#FFFCF6'; g.strokeStyle = '#2A2536'; g.lineWidth = 3; rr(-52, -22, 104, 40, 12); g.fill(); g.stroke();
+  g.fillStyle = '#1F9E97'; g.font = '700 24px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('BILL', 0, 0); g.textBaseline = 'alphabetic';
+  g.fillStyle = '#D8E2EA'; g.beginPath(); g.moveTo(-14, -24); g.lineTo(-14, -36); g.lineTo(-7, -29); g.lineTo(0, -40); g.lineTo(7, -29); g.lineTo(14, -36); g.lineTo(14, -24); g.closePath(); g.fill(); g.stroke();
+  g.restore();
+  // sparkle ring while it pops
+  const s2 = P(t, T_BTHRONE(), T_BTHRONE() + 1.1);
+  if (s2 > 0 && s2 < 1){ const c = iso(x + 1, y + 1, 20); g.strokeStyle = `rgba(53,224,255,${1 - s2})`; g.lineWidth = 5; g.beginPath(); g.ellipse(c.x, c.y, 60 + 120*s2, 30 + 60*s2, 0, 0, 7); g.stroke(); }
+}
+// Erik's own name sign
+function drawErikSign(t){
+  if (P(t, T_BTHRONE() - .2, T_BTHRONE() + .4) <= 0) return;
+  const k = Math.max(.01, back(P(t, T_BTHRONE() - .2, T_BTHRONE() + .4)));
+  const p = iso(1.9, 1.9, 150);
+  g.save(); g.translate(p.x, p.y); g.scale(k, k);
+  g.fillStyle = '#FFFCF6'; g.strokeStyle = '#2A2536'; g.lineWidth = 3; rr(-52, -22, 104, 40, 12); g.fill(); g.stroke();
+  g.fillStyle = '#7B2D5A'; g.font = '700 24px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ERIK', 0, 0); g.textBaseline = 'alphabetic';
+  g.restore();
+}
+function drawVault(t){
+  box(VAULT.x + .2, VAULT.y + .2, 1.3, 1.3, 54, 0, '#F2C94C', '#D9A92A', '#C2921E', '#8C6512');
+  box(VAULT.x + .26, VAULT.y + .26, 1.18, 1.18, 5, 54, '#FFE08A', '#E7B12F', '#D9A92A');
+  const p = iso(VAULT.x + .85, VAULT.y + 1.5, 27);
+  g.font = '700 17px Fredoka, sans-serif'; g.fillStyle = '#5C3F08'; g.textAlign = 'center'; g.fillText('main', p.x - 14, p.y + 4);
+}
+function drawPlant(x, y){
+  box(x+.3,y+.3,.4,.4,14,0,'#B85C3C','#9A4A30','#853F28'); const p = iso(x+.5,y+.5,30);
+  [[-7,0,9,'#3F9A5C'],[6,-2,9,'#3F9A5C'],[0,-9,10,'#3F9A5C'],[-2,4,8,'#3F9A5C'],[-2,-6,6,'#56B573']].forEach(([dx,dy,r,c]) => { g.fillStyle = c; g.beginPath(); g.arc(p.x+dx, p.y+dy, r, 0, 7); g.fill(); });
+}
+
+// ---- people ----
+function drawPerson(p, t){
+  const pos = iso(p.x, p.y, p.z || 0), s = p.scale || 1;
+  g.save(); g.translate(pos.x, pos.y); g.scale(s, s);
+  g.fillStyle = 'rgba(50,30,15,.25)'; g.beginPath(); g.ellipse(0, 0, 11, 5, 0, 0, 7); g.fill();
+  const front = (p.fx ?? 0) + (p.fy ?? 1) >= -.15, side = clamp((p.fx ?? 0) - (p.fy ?? 1), -1, 1);
+  const ph = t*12 + (p.seed || 0);
+  const bob = p.moving ? Math.abs(Math.sin(ph))*1.6 : 0;
+  let base = -12 - bob;
+  if (p.sitting) base = -13;
+  else {
+    const sw = p.moving ? Math.sin(ph)*3 : 0;
+    g.fillStyle = COL.pants; g.fillRect(-5.5, -12 - bob, 4.5, 12 + bob - Math.max(0, sw)); g.fillRect(1, -12 - bob, 4.5, 12 + bob - Math.max(0, -sw));
+    g.fillStyle = COL.shoe; g.fillRect(-6, -2 - Math.max(0, sw), 5.5, 2.5); g.fillRect(.5, -2 - Math.max(0, -sw), 5.5, 2.5);
+  }
+  g.fillStyle = p.shirt; rr(-8, base - 18, 16, 19, 5); g.fill();
+  if (p.boss) { g.fillStyle = p.trim || COL.gold; g.fillRect(-1.2, base - 17, 2.4, 17); }
+  const typing = p.typing, ta = typing ? Math.sin(t*22 + (p.seed||0))*1.2 : 0;
+  g.fillStyle = shade(p.shirt, -.18);
+  if (p.carry){ rr(-10.5, base - 18, 4, 10, 2); g.fill(); rr(6.5, base - 18, 4, 10, 2); g.fill(); }
+  else { rr(-10.5, base - 16 + ta, 4, 12, 2); g.fill(); rr(6.5, base - 16 - ta, 4, 12, 2); g.fill(); g.fillStyle = p.skin; g.beginPath(); g.arc(-8.5, base - 4 + ta, 2.2, 0, 7); g.arc(8.5, base - 4 - ta, 2.2, 0, 7); g.fill(); }
+  const hy = base - 26;
+  g.fillStyle = p.skin; g.beginPath(); g.arc(0, hy, 8, 0, 7); g.fill();
+  g.fillStyle = p.hair;
+  if (front){ g.beginPath(); g.arc(0, hy - 1, 8.3, Math.PI*1.02, Math.PI*1.98); g.fill(); g.fillRect(-8.3, hy - 2, 3, 4);
+    g.fillStyle = '#231C2C'; g.beginPath(); g.arc(-2.8 + side*2, hy + 1, 1.3, 0, 7); g.arc(2.8 + side*2, hy + 1, 1.3, 0, 7); g.fill(); }
+  else { g.beginPath(); g.arc(0, hy - .5, 8.4, 0, 7); g.fill(); }
+  if (p.boss){
+    g.fillStyle = p.crown || COL.gold; g.strokeStyle = shade(p.crown || COL.gold, -.3); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(-7, hy - 7); g.lineTo(-7, hy - 15); g.lineTo(-3.5, hy - 10); g.lineTo(0, hy - 17); g.lineTo(3.5, hy - 10); g.lineTo(7, hy - 15); g.lineTo(7, hy - 7); g.closePath(); g.fill(); g.stroke();
+  }
+  if (p.ticket){ ticket(0, base - 26); }
+  if (p.carry){ g.fillStyle = COL.gold; g.strokeStyle = '#8C6512'; g.lineWidth = 1.5; rr(-10, base - 36, 20, 15, 2); g.fill(); g.stroke(); g.beginPath(); g.moveTo(-10, base - 30); g.lineTo(10, base - 30); g.stroke(); }
+  g.restore();
+  p._head = {x:pos.x, y:pos.y + (hy - 10)*s};
+}
+function bot(x, y, visor, status, t, seed){
+  const st = {run:'#34B386', done:'#8C85A0', wait:'#E7B12F'}[status];
+  const p = iso(x, y), hop = status === 'run' ? Math.abs(Math.sin(t*6 + seed))*2.5 : 0;
+  g.save(); g.translate(p.x, p.y - hop); g.scale(.8, .8);
+  g.fillStyle = 'rgba(50,30,15,.22)'; g.beginPath(); g.ellipse(0, hop*1.2, 10, 4.5, 0, 0, 7); g.fill();
+  g.fillStyle = '#5B5670'; g.fillRect(-4, -7, 3, 7); g.fillRect(1, -7, 3, 7);
+  g.fillStyle = '#DCD5EE'; g.strokeStyle = '#2A2536'; g.lineWidth = 2; rr(-9, -28, 18, 22, 7); g.fill(); g.stroke();
+  g.fillStyle = visor; g.lineWidth = 1.5; rr(-6, -24, 12, 6, 3); g.fill(); g.stroke();
+  g.lineWidth = 2; g.beginPath(); g.moveTo(0, -28); g.lineTo(0, -34); g.stroke();
+  g.fillStyle = st; g.beginPath(); g.arc(0, -36, 3.2, 0, 7); g.fill(); g.lineWidth = 1.5; g.stroke();
+  g.restore();
+}
+function bubble(x, y, text, fill='#FFFCF6', size=13, color='#2A2536'){
+  g.font = `900 ${size}px Nunito, sans-serif`; const tw = g.measureText(text).width, bw = tw + 22, bh = size + 15;
+  g.fillStyle = fill; g.strokeStyle = '#2A2536'; g.lineWidth = 2;
+  rr(x - bw/2, y - bh - 9, bw, bh, 9); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(x - 5, y - 9.5); g.lineTo(x, y - 2); g.lineTo(x + 5, y - 9.5); g.fill();
+  g.beginPath(); g.moveTo(x - 5, y - 9); g.lineTo(x, y - 2); g.lineTo(x + 5, y - 9); g.stroke();
+  g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x, y - 9 - bh/2 + 1); g.textBaseline = 'alphabetic';
+}
+function badge(x, y, glyph, color, r=10){
+  g.fillStyle = color; g.strokeStyle = '#2A2536'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = '#fff'; g.font = `700 ${r*1.3}px Fredoka, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(glyph, x, y + 1); g.textBaseline = 'alphabetic';
+}
+
+/* ================= actors with scripted motion ================= */
+const ACT = {};
+function actors(t){
+  const list = [];
+  // boss Erik on the throne
+  list.push({id:'erik', x:2.55, y:2.55, z:22, sitting:true, boss:true, shirt:COL.velvet, skin:'#F2C9A0', hair:'#2B2233', fx:1, fy:1, scale:1.2, k:5.3});
+  // seated staff
+  STAFF.forEach(([d, name, role, repo, skin, hair, st], i) => {
+    const s = seatOf(d); list.push({id:name, x:s.x, y:s.y, sitting:true, typing:st === 'work', shirt:ROLE[role], skin, hair, fx:0, fy:-1, seed:i*1.7, desk:d, repo, prog:STAFF[i][7] + t*.004});
+  });
+  // Maya: door -> audience -> desk (17,7)
+  const tm0 = A('ask') - .8;
+  const inR = route(tm0, [[DOOR.x, DOOR.y], [17.25, 1.7], [6.6, 1.9], [AUD.x, AUD.y]], 5.2, [-1, -.2]);
+  const outR = route(E('go') + .6, [[AUD.x, AUD.y], [5.6, 6.2], [5.6, 12.35], [3.5, 12.35]], 4.6, [0, -1]);
+  if (t >= tm0){
+    const w = t < outR[0][0] ? walk(t, inR) : walk(t, outR);
+    const seated = t >= outR.end;
+    ACT.maya = {x:w.x, y:w.y};
+    list.push({id:'Maya', x:w.x, y:w.y, moving:w.moving, sitting:seated, typing:seated, fx:seated ? 0 : w.fx, fy:seated ? -1 : w.fy, shirt:ROLE.mkt, skin:'#E0A77A', hair:'#2B2233', seed:3.3, desk:seated ? [3,11] : null, repo:'marketing', prog:seated ? .05 + (t - outR.end)*.02 : null});
+  }
+  // Finance: Penny and Felix arrive with the new area; Penny takes the monthly close
+  const tE = T_AREA() + 2.1;
+  const inPath = (t0, end) => route(t0, [[DOOR.x, DOOR.y], [18.6, 1.9], [18.6, 12.7], ...end], 7.2, [0, -1]);
+  const pIn = inPath(tE, [[15.4, 12.75], [15.4, 14.35], [16.5, 14.35]]);
+  const fIn = inPath(tE + .45, [[17.6, 12.75], [17.6, 14.35], [18.7, 14.35]]);
+  const tUp = T_RING() + .5;
+  const pGo = route(tUp, [[16.5, 14.35], [16.5, 12.7], [17.45, 12.45]], 5.5, [0, -1]);
+  ACT.grab = pGo.end + .15;
+  const pBack = route(ACT.grab + .1, [[17.45, 12.45], [16.5, 12.7], [16.5, 14.35]], 5.5, [0, -1]);
+  if (t >= tE){
+    let w, seated = false, tk = false;
+    if (t < pIn.end) w = walk(t, pIn);
+    else if (t < tUp){ w = {x:16.5, y:14.35}; seated = true; }
+    else if (t < ACT.grab){ w = walk(t, pGo); }
+    else if (t < pBack.end){ w = walk(t, pBack); tk = true; }
+    else { w = {x:16.5, y:14.35}; seated = true; }
+    const prog = t < pBack.end ? .08 : clamp(.1 + (t - pBack.end)/2.2);
+    list.push({id:'Penny', ...w, sitting:seated, typing:seated, fx:seated ? 0 : w.fx, fy:seated ? -1 : w.fy, ticket:tk, shirt:ROLE.fin, skin:'#F2C9A0', hair:'#B5452F', seed:9, desk:seated ? FIN_DESKS[0] : null, repo:'finance', prog:seated ? prog : null});
+  }
+  if (t >= tE + .45){
+    const seated = t >= fIn.end, w = seated ? {x:18.7, y:14.35} : walk(t, fIn);
+    list.push({id:'Felix', ...w, sitting:seated, typing:seated, fx:seated ? 0 : w.fx, fy:seated ? -1 : w.fy, shirt:ROLE.fin, skin:'#9C6440', hair:'#2B2233', seed:10, desk:seated ? FIN_DESKS[1] : null, repo:'finance', prog:seated ? .3 + (t - fIn.end)*.02 : null});
+  }
+  // Nadia: gap task researcher
+  const tn0 = 1e9;
+  if (t >= tn0){
+    const r = route(tn0, [[DOOR.x, DOOR.y], [17.25, 1.7], [18.6, 1.9], [18.6, 12.35], [17.5, 12.35]], 5.5, [0, -1]);
+    const w = walk(t, r), seated = t >= r.end;
+    list.push({id:'Nadia', x:w.x, y:w.y, moving:w.moving, sitting:seated, typing:seated, fx:seated ? 0 : w.fx, fy:seated ? -1 : w.fy, shirt:ROLE.res, skin:'#9C6440', hair:'#2B2233', seed:5, desk:seated ? [17,11] : null, repo:'parrot-cron', prog:seated ? .03 : null, say:t < r.end + 2.5 ? 'On the Temporal retry gap' : null});
+  }
+  // the line: Joan (present), Bjarne (question), Sophie (merge)
+  const tCarry = A('merge') + 2.4;
+  const joanR = route(tCarry, [[QS(0).x, QS(0).y], [VAULT.x - .3, VAULT.y - .3]], 4.6);
+  const sophR = route(tCarry + .35, [[QS(2).x, QS(2).y], [VAULT.x - .1, VAULT.y - .9]], 4.6);
+  const back1 = route(joanR.end + .8, [[VAULT.x - .3, VAULT.y - .3], [11.4, 15.6]], 4);
+  const back2 = route(sophR.end + .8, [[VAULT.x - .1, VAULT.y - .9], [17.5, 8.9]], 4);
+  ACT.coins = [joanR.end, sophR.end];
+  {
+    let w, carry = false;
+    if (t < tCarry) w = {x:QS(0).x, y:QS(0).y, moving:false, fx:-1, fy:-1};
+    else if (t < joanR.end + .8){ w = walk(t, joanR); carry = t < joanR.end; }
+    else w = walk(t, back1);
+    list.push({id:'Joan', ...w, carry, shirt:ROLE.qa, skin:'#F6D6B8', hair:'#2B2233', seed:1, line:t < tCarry ? 'deliver' : null});
+  }
+  {
+    // Bjarne stays; Bill comes to him
+    const th = A('hand') + 2.3, br = route(th, [[QS(1).x, QS(1).y], [7.2, 4.2], [8.2, 3.9]], 4.5, [-1, -1]);
+    const w = t < th ? {x:QS(1).x, y:QS(1).y, moving:false, fx:-1, fy:-1} : walk(t, br);
+    list.push({id:'Bjarne', ...w, shirt:ROLE.eng, skin:'#E0A77A', hair:'#8C5A2B', seed:2, line:'ask'});
+  }
+  {
+    let w, carry = false;
+    if (t < tCarry + .35) w = {x:QS(2).x, y:QS(2).y, moving:false, fx:-1, fy:-1};
+    else if (t < sophR.end + .8){ w = walk(t, sophR); carry = t < sophR.end; }
+    else w = walk(t, back2);
+    list.push({id:'Sophie', ...w, carry, shirt:ROLE.eng, skin:'#F2C9A0', hair:'#B5452F', seed:4, line:t < tCarry + .35 ? 'merge' : null});
+  }
+  // Bill Land: second boss
+  const tb0 = A('multi') + .3;
+  if (t >= tb0){
+    const r = route(tb0, [[DOOR.x, DOOR.y], [17.25, 1.8], [9.2, 2.0], [8.6, 3.3]], 7.5, [-1, -1]);
+    const seated = t >= r.end + .25;
+    const w = seated ? {x:BT.x + 1.0, y:BT.y + 1.0, moving:false, fx:1, fy:1} : walk(t, r);
+    ACT.bill = {x:w.x, y:w.y};
+    list.push({id:'Bill', ...w, z:seated ? 22 : 0, sitting:seated, boss:true, crown:'#D8E2EA', trim:'#D8E2EA', shirt:'#1F9E97', skin:'#E8B98E', hair:'#6B4A2E', scale:1.15, seed:8, k:seated ? BT.x + BT.y + 3.1 : null});
+  }
+  return list;
+}
+
+/* ================= world render ================= */
+function renderWorld(ctx2, cam, t, opts={}){
+  g = ctx2;
+  const Wd = ctx2.canvas.width, Hd = ctx2.canvas.height;
+  g.setTransform(1,0,0,1,0,0); g.fillStyle = '#2B2740'; g.fillRect(0, 0, Wd, Hd);
+  const z = cam[2]*(Wd/1920);
+  g.setTransform(z, 0, 0, z, Wd/2 - cam[0]*z, Hd/2 - cam[1]*z);
+  g.lineJoin = 'round';
+  drawRoom(t);
+  const people = actors(t);
+  const items = [];
+  DESKS.forEach(d => {
+    const owner = people.find(p => p.desk && p.desk[0] === d[0] && p.desk[1] === d[1]);
+    items.push({k:d[0] + d[1] + .9, f:() => drawDesk(d, !!(owner && owner.typing), t)});
+    if (owner && owner.repo) items.push({k:d[0] + d[1] + 2.1, f:() => deskTag(d, owner.repo)});
+  });
+  [[10,0],[0,19]].forEach(([x,y]) => items.push({k:x + y + 1, f:() => drawPlant(x, y)}));
+  ZONES.forEach(z => items.push({k:z.sign[0] + z.sign[1] + .2, f:() => drawSign(z)}));
+  if (t > T_AREA() + 1.3) items.push({k:FIN.sign[0] + FIN.sign[1] + .2, f:() => drawSign(FIN, back(P(t, T_AREA() + 1.3, T_AREA() + 1.8)))});
+  FIN_DESKS.forEach((d, i) => { const td = T_AREA() + 1.7 + i*.22; if (t < td) return;
+    const owner = people.find(p => p.desk && p.desk[0] === d[0] && p.desk[1] === d[1]);
+    items.push({k:d[0] + d[1] + .9, f:() => { g.save(); g.translate(0, -220*(1 - eout(P(t, td, td + .4)))); drawDesk(d, !!(owner && owner.typing), t); g.restore(); }});
+    if (owner && owner.repo) items.push({k:d[0] + d[1] + 2.1, f:() => deskTag(d, owner.repo)}); });
+  items.push({k:KIOSK.x + KIOSK.y + .7, f:() => drawKiosk(t)});
+  items.push({k:4.2, f:drawThrone});
+  items.push({k:BT.x + BT.y + 2.2, f:() => drawBillThrone(t)});
+  items.push({k:99, f:() => drawErikSign(t)});
+  items.push({k:VAULT.x + VAULT.y + 1.6, f:() => drawVault(t)});
+  people.forEach(p => items.push({k:p.id === 'erik' ? 5.3 : p.k != null ? p.k : p.x + p.y + (p.sitting ? .05 : 0), f:() => drawPerson(p, t)}));
+  // helper bots around Ada and Guido
+  if (t > A('tour')){
+    [[7.9,4.9,'done'],[8.25,5.35,'run'],[8.75,5.05,'wait']].forEach(([x,y,s], i) => items.push({k:x + y, f:() => bot(x, y, ROLE.eng, s, t, i)}));
+
+  }
+  items.sort((a, b) => a.k - b.k).forEach(i => i.f());
+  drawBeams(t);
+  // coins at the vault
+  (ACT.coins || []).forEach((tc, ci) => {
+    const k = (t - tc)/1.4; if (k < 0 || k > 1) return;
+    const r = rng(100 + ci);
+    for (let i = 0; i < 26; i++){
+      const a = r()*6.28, v = 60 + r()*90, up = 120 + r()*130;
+      const p = iso(VAULT.x + .8, VAULT.y + .8, 60 + up*k - 260*k*k);
+      g.globalAlpha = 1 - k; g.fillStyle = COL.gold; g.strokeStyle = COL.goldD; g.lineWidth = 1;
+      g.beginPath(); g.ellipse(p.x + Math.cos(a)*v*k, p.y + Math.sin(a)*v*k*.5, 4*Math.abs(Math.cos(t*14 + i)) + 1, 4, 0, 0, 7); g.fill(); g.stroke();
+    }
+    g.globalAlpha = 1;
+  });
+  // overheads
+  people.forEach(p => {
+    if (!p._head) return;
+    let { x, y } = p._head; y -= 6;
+    if (p.sitting && p.id !== 'erik' && p.id !== 'Bill'){
+      g.font = '900 11px Nunito, sans-serif'; const nw = g.measureText(p.id).width + 14;
+      g.fillStyle = '#FFFCF6'; g.strokeStyle = p.shirt; g.lineWidth = 2; rr(x - nw/2, y - 26, nw, 16, 8); g.fill(); g.stroke();
+      g.fillStyle = '#2A2536'; g.textAlign = 'center'; g.fillText(p.id, x, y - 14); g.textAlign = 'left';
+    }
+    if (p.typing && p.prog != null){
+      const learned = learnedAt(p, t);
+      g.fillStyle = '#2A2536'; rr(x - 17, y - 6, 34, 7, 3); g.fill();
+      g.fillStyle = '#34B386'; rr(x - 16, y - 5, 32*clamp(p.prog), 5, 2); g.fill();
+      if (learned > 0){ g.globalAlpha = Math.min(1, learned*3, (1 - learned)*4); bubble(x, y - 10, '✓ learned', '#B8FFD9', 11); g.globalAlpha = 1; }
+    }
+    if (p.line){ const b = Math.sin(t*4 + (p.seed||0))*2; badge(x, y - 8 + b, {deliver:'!', ask:'?', merge:'✓'}[p.line], {deliver:'#34B386', ask:'#E4506A', merge:'#E7B12F'}[p.line], 10); }
+    if (p.say) bubble(x, y - 4, p.say, '#FFFCF6', 12);
+  });
+  // desks handed to Bill
+  const th = A('hand') + 2.3;
+  if (t > th && t < A('campus')){
+    [[7,11],[7,14]].forEach((d, i) => { const k = back(P(t, th + .3 + i*.25, th + .6 + i*.25)); const s = seatOf(d), m = iso(s.x, s.y);
+      g.strokeStyle = '#1F9E97'; g.lineWidth = 4; g.beginPath(); g.ellipse(m.x, m.y, 30*k, 14*k, 0, 0, 7); g.stroke();
+      const p = people.find(q => q.desk && q.desk[0] === d[0] && q.desk[1] === d[1]);
+      if (p && p._head && t < th + 3.6){ g.save(); g.translate(p._head.x, p._head.y - 12); g.scale(k, k); bubble(0, 0, 'Now reporting to Bill', '#BFF6FF', 12); g.restore(); } });
+  }
+  // scripted speech bubbles
+  const say = (who, a, b, text, fill) => { const p = people.find(q => q.id === who); if (p && p._head && within(t, a, b)) bubble(p._head.x, p._head.y - 8, text, fill, opts.pip ? 16 : 14); };
+  say('Maya', A('ask') + 1.4, A('maya') + 1.0, 'Hi boss!');
+  say('Maya', E('go') + .4, E('go') + 2.6, 'Off to write!', '#9FE3C4');
+  say('Hedy', A('tour') + .3, A('tour') + 3.2, 'Replying to ticket #4412');
+  say('Radia', A('tour') + .9, A('tour') + 3.8, 'Drafting the launch tweet');
+  say('Frances', A('tour') + 1.6, A('tour') + 4.5, 'Booking the Oct 12 venue');
+  say('Ada', A('tour') + 4.0, A('tour') + 6.8, 'go test ./... 41 passed');
+  say('Joan', E('ship') + .2, A('merge') + 2.2, 'Shipped!', '#FFE08A');
+  say('Bill', A('multi') + 1.6, A('hand') + .8, 'Hey team!', '#BFF6FF');
+  say('Bill', A('bill') + .1, T_BILLRULE() + 1.4, 'New rule: no parrot merges on Fridays', '#FFE08A');
+  say('Bjarne', A('hand') + 3.6, A('bill') - .1, 'Bill, Stripe or Apple Pay?');
+  say('erik', A('ask') + .2, A('ask') + 2.4, 'Launch email, please', '#E9E1FF');
+  CLIMAX_DESKS.forEach((d, i) => { const p = people.find(q => q.desk && q.desk[0] === d[0] && q.desk[1] === d[1]); const t0 = T_BILLRULE() + 2.5 + i*.38;
+    if (p && p._head && within(t, t0, E('climax') + 1.6)){ const k = back(P(t, t0, t0 + .3)); g.save(); g.translate(p._head.x, p._head.y - 14); g.scale(k, k); bubble(0, 0, '✓ No Friday merges', '#FFE08A', 13); g.restore();
+      const s = seatOf(d), m = iso(s.x, s.y); g.strokeStyle = `rgba(255,211,92,${.6 + .4*Math.sin(t*10)})`; g.lineWidth = 4; g.beginPath(); g.ellipse(m.x, m.y, 30*k, 14*k, 0, 0, 7); g.stroke(); } });
+  // packets flying into the brain
+  const packet = (t0, from, node, color) => {
+    const k = P(t, t0, t0 + 1.2); if (k <= 0 || k >= 1) return;
+    const a = from, b = iso(0, node.u, node.v), q = ease(k);
+    const x = lerp(a.x, b.x, q), y = lerp(a.y, b.y, q) - Math.sin(Math.PI*q)*120;
+    g.save(); g.shadowColor = color; g.shadowBlur = 22; g.fillStyle = '#FFF6B8'; g.strokeStyle = '#2A2536'; g.lineWidth = 2;
+    g.translate(x, y); g.rotate(Math.sin(k*9)*.2); rr(-13, -9, 26, 18, 3); g.fill(); g.stroke(); g.restore();
+  };
+  packet(T_WRITE(), monOf([8,3]), LESSON, '#7FF0B0');
+  if (ACT.bill) packet(T_BILLRULE() + .1, iso(ACT.bill.x, ACT.bill.y, 50), RULE, '#FFD35C');
+  // Bill's multiplayer cursor (main view only)
+  return people;
+}
+function learnedAt(p, t){
+  const hits = beamList().filter(b => b.spread && b.desk && p.desk && b.desk[0] === p.desk[0] && b.desk[1] === p.desk[1]);
+  let best = 0;
+  hits.forEach(b => { const k = (t - (b.t0 + b.dur*.8))/2.2; if (k > 0 && k < 1) best = Math.max(best, k); });
+  return best;
+}
+
+/* ================= camera ================= */
+function camAt(t){
+  const d = [168, 147]; // Ada's monitor in world px
+  return keyed(t, [
+    [0, 0, 60, 3.0],
+    [A('frame') + 1.9, 0, 60, 3.0],
+    [A('tour') - .1, 0, 240, 1.3],
+    [A('tour') + .6, -230, 330, 1.75],
+    [A('tour') + 3.6, -200, 340, 1.75],
+    [E('tour') - .2, 200, 250, 1.6],
+    [A('come') + .5, 30, 190, 1.9],
+    [A('ask') - .2, 250, 150, 2.05],
+    [E('go') + .5, 250, 150, 2.05],
+    [E('go') + 2.9, -120, 330, 1.45],
+    [A('gbrain') - .2, -150, 200, 1.35],
+    [A('gbrain') + .9, -320, 110, 1.95],
+    [A('graph') + 2.4, -230, 150, 1.6],
+    [E('graph'), -180, 170, 1.5],
+    [A('write') + .3, -60, 150, 1.45],
+    [E('write') + .2, -60, 150, 1.45],
+    [A('playbooks') + .55, -330, 90, 2.5],
+    [E('playbooks') + .3, -330, 90, 2.5],
+    [A('drill') - .1, 150, 160, 1.9],
+    [A('drill') + 1.2, d[0], d[1], 9],
+    [A('drill') + 1.25, 30, 190, 1.9],
+    [A('proof'), 30, 190, 1.9],
+    [E('ship') + .3, 30, 190, 1.9],
+    [A('merge') + 1.2, 220, 330, 1.25],
+    [E('merge') + .3, 220, 330, 1.25],
+    [A('area') - .1, 220, 330, 1.25],
+    [A('area') + .5, 150, 470, 1.95],
+    [E('area') + .3, 150, 470, 1.95],
+    [A('auto') + .5, 60, 420, 1.35],
+    [A('auto') + 3.9, 60, 420, 1.35],
+    [A('auto') + 4.5, 330, 430, 2.05],
+    [E('auto') + 1.0, 330, 430, 2.05],
+    [A('multi') + .2, 330, 170, 1.55],
+    [A('multi') + 1.4, 150, 90, 1.9],
+    [A('hand') + 1.8, 120, 120, 1.75],
+    [A('hand') + 3.0, 60, 200, 1.35],
+    [A('bill') + .3, 130, 110, 1.9],
+    [A('climax') + .2, 130, 110, 1.9],
+    [A('climax') + 1.6, -20, 150, 1.4],
+    [A('climax') + 2.2, 90, 150, 1.55],
+    [E('climax') + 1.2, 90, 150, 1.6],
+    [A('campus') - .2, 60, 200, 1.3],
+    [A('campus') + 1.1, 0, 250, .6],
+  ]);
+}
+
+/* ================= UI overlays ================= */
+const $ = s => document.querySelector(s);
+const ui = $('#ui'), capEl = $('#cap'), chaosEl = $('#chaos'), campusEl = $('#campus'), titleEl = $('#title'), fadeEl = $('#fade'), slam = $('#slam');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const av = (l, c, s=40) => `<span class="av" style="background:${c};width:${s}px;height:${s}px;font-size:${s*.45}px">${l}</span>`;
+function brainIcon(s=22, c='#7C5CFF'){ return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round"><circle cx="6" cy="7" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="17" r="2.5"/><circle cx="19" cy="16" r="2"/><path d="M8 8l3 7M16 7l-3 8M8.5 7h7M14.5 17h3"/></svg>`; }
+
+function pages(t){ return 12408 + (t > LESSON.at() ? 1 : 0) + (t > RULE.at() ? 1 : 0); }
+
+function topbar(t, show){
+  if (!show) return '';
+  const working = 13 + (t > E('go') + 6 ? 1 : 0) + (t > T_AREA() + 5 ? 2 : 0);
+  const waiting = t < E('ship') ? 3 : t < A('merge') + 2.6 ? 2 : 1;
+  const stat = (l, v, bg='#FFFCF6', ico='') => `<div class="card" style="padding:8px 16px;display:flex;flex-direction:column;min-width:120px;background:${bg}"><span class="lbl" style="display:flex;gap:6px;align-items:center">${ico}${l}</span><span class="h" style="font-weight:600;font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums">${v}</span></div>`;
+  const bill = t > A('multi') + .5;
+  return `<div style="position:absolute;left:28px;right:28px;top:22px;display:flex;gap:14px;align-items:stretch">
+    <div class="card" style="padding:8px 18px;display:flex;gap:12px;align-items:center">
+      <svg width="34" height="30" viewBox="0 0 34 30"><path d="M3 26 L3 8 L10 16 L17 3 L24 16 L31 8 L31 26 Z" fill="#E7B12F" stroke="#2A2536" stroke-width="2.5" stroke-linejoin="round"/></svg>
+      <div><div class="h" style="font-weight:700;font-size:28px;line-height:1">Throne</div><div style="font:800 14px Nunito;color:#645B75">Parrot Works · on QM</div></div></div>
+    ${stat('Working', working)}${stat('Waiting on you', waiting, '#FFE9A8')}
+    ${stat('GBrain pages', pages(t).toLocaleString('en-US'), t > LESSON.at() && t < LESSON.at() + 2.5 || t > RULE.at() && t < RULE.at() + 2.5 ? '#D9FFE9' : '#FFFCF6', brainIcon(16))}
+    ${stat('QM sessions', working + 3 + 5)}
+    <div style="flex:1"></div>
+    <div class="card" style="padding:8px 14px;display:flex;gap:8px;align-items:center">
+      <span class="lbl">In the studio</span>${av('E', '#7B2D5A', 42)}${bill ? av('B', '#1F9E97', 42) : ''}</div>
+  </div>`;
+}
+
+function linePanel(t, show){
+  if (!show) return '';
+  const rows = [];
+  if (t < A('merge') + 2.4) rows.push(['J', ROLE.qa, 'Joan', 'Ready', '#2F8F6B', 'parrot', t >= A('proof') ? 'Presenting now' : 'QA inbox paging · 3 proofs']);
+  rows.push(['B', ROLE.eng, 'Bjarne', 'Question', '#C8354F', 'one-app', 'Stripe or Apple Pay?']);
+  if (t < A('merge') + 2.75) rows.push(['S', ROLE.eng, 'Sophie', 'Merge', '#9A6A0C', 'parrot', 'PR #1734 is green']);
+  return `<div class="card" style="position:absolute;right:28px;top:140px;width:380px;padding:16px;display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="h" style="font-weight:600;font-size:24px">The line</span><span style="font:800 16px Nunito;color:#645B75">${rows.length} waiting</span></div>
+    ${rows.map((r, i) => `<div style="display:flex;gap:12px;align-items:center;padding:9px 10px;border-radius:12px;background:${i === 0 ? '#FFE9A8' : '#F3ECE0'}">${av(r[0], r[1])}
+      <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center"><span class="tag" style="background:${r[4]}">${r[3]}</span><span style="font:900 18px Nunito">${r[2]}</span><span style="margin-left:auto;font:800 14px Nunito;color:#645B75">${r[5]}</span></div>
+      <div style="font:700 15px Nunito;color:#2A2536">${r[6]}</div></div></div>`).join('')}
+  </div>`;
+}
+
+function chatPanel(t){
+  const t0 = A('ask') - .2, t1 = E('go') + 1.1;
+  if (t < t0 || t > t1) return '';
+  const slide = t < t0 + .5 ? (1 - eout(P(t, t0, t0 + .5)))*700 : t > t1 - .5 ? eout(P(t, t1 - .5, t1))*700 : 0;
+  const msg = (who, html, me, at) => t < at ? '' : `<div style="display:flex;flex-direction:column;align-items:${me ? 'flex-end' : 'flex-start'};gap:4px;opacity:${eout(P(t, at, at + .3))}"><span class="lbl">${who}</span>
+    <div style="max-width:520px;padding:12px 16px;border-radius:16px;border:3px solid #2A2536;background:${me ? '#E9E1FF' : '#fff'};font:800 19px/1.4 Nunito">${html}</div></div>`;
+  const agree = (lbl, val, at, mem) => { const on = t >= at; return `<div style="display:grid;grid-template-columns:24px 120px 1fr;gap:10px;align-items:center;font:800 17px Nunito">
+    <span style="width:22px;height:22px;border-radius:6px;${on ? `background:${mem ? '#7C5CFF' : '#34B386'};` : 'border:3px dashed #B8AFA0;'}display:grid;place-items:center;color:#fff;font:900 13px Nunito">${on ? (mem ? 'G' : '✓') : ''}</span>
+    <span class="lbl">${lbl}</span><span style="color:${on ? '#2A2536' : '#9A91A8'}">${on ? val : '…'}</span></div>`; };
+  const pressed = t > E('go') + .02;
+  const gb = t > A('maya') + 2.6 ? `<div style="display:flex;gap:10px;align-items:center;margin-top:8px;background:#EEE8FF;border:3px dashed #7C5CFF;border-radius:12px;padding:8px 12px;font:800 16px Nunito">${brainIcon(20)}<span><b style="color:#5B3FE0">Recalled from GBrain</b> · Erik’s launch emails: short, no emojis, Bill signs off</span></div>` : '';
+  return `<div class="card" style="position:absolute;right:28px;top:140px;bottom:150px;width:660px;padding:20px;display:flex;flex-direction:column;gap:14px;transform:translateX(${slide}px)">
+    <div style="display:flex;gap:14px;align-items:center">${av('M', ROLE.mkt, 52)}<div style="flex:1"><div class="h" style="font-weight:700;font-size:30px;line-height:1.05">Maya</div>
+      <div style="font:800 15px Nunito;color:#645B75">Marketing · QM session · no repo needed</div></div>
+      <span class="chip" style="background:#E9E1FF">Talking · not working yet</span></div>
+    <div style="background:#F3ECE0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:9px"><span class="h" style="font-weight:600;font-size:20px">What we’ve agreed</span>
+      ${agree('Goal', 'Launch email for dark mode', A('ask') + 1.2)}${agree('Memory', 'Short, no emojis', A('maya') + 2.6, true)}${agree('Length', 'Under 100 words', A('go') + .3)}${agree('Proof', 'Draft in your inbox by Thursday', A('go') + .6)}</div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:12px">
+      ${msg('Erik · spoken', 'Maya, write Friday’s launch email for dark mode.', true, A('ask') + .25)}
+      ${msg('Maya', 'On it! Under a hundred words?' + gb, false, A('maya') + .2)}
+      ${msg('Erik · spoken', 'Perfect. Go.', true, A('go') + .1)}
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;border-top:3px dashed #E4DBCB;padding-top:14px">
+      <span class="btn ${pressed ? 'press gold' : 'gold'}" style="font-size:24px">Send Maya away <span style="font:900 14px Nunito;opacity:.6">⌘↵</span></span>
+      <span style="font:800 15px Nunito;color:#645B75">Nobody starts until you send them.</span></div>
+  </div>`;
+}
+
+function gapCard(t){
+  const t0 = A('gaps') + .5, t1 = E('gaps') + .4;
+  if (t < t0 || t > t1) return '';
+  const k = back(P(t, t0, t0 + .45)), pressed = t > A('gaps') + 2.6;
+  return `<div class="card" style="position:absolute;left:1000px;top:190px;width:560px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;transform:scale(${k});transform-origin:0 50%;opacity:${1 - P(t, t1 - .3, t1)}">
+    <div style="display:flex;gap:10px;align-items:center">${brainIcon(28, '#E4506A')}<span class="h" style="font-weight:700;font-size:26px">GBrain found a gap</span></div>
+    <div style="font:800 20px/1.4 Nunito">0 pages explain the parrot-cron Temporal retry policy. 3 workers searched for it this week.</div>
+    <div style="display:flex;gap:10px;align-items:center"><span class="btn ${pressed ? 'press go' : 'go'}">Make it a task</span><span style="font:800 15px Nunito;color:#645B75">A researcher walks in</span></div></div>`;
+}
+
+function computerPanel(t){
+  const t0 = A('drill') + 1.05, t1 = E('drill') + .45;
+  if (t < t0 || t > t1) return '';
+  const op = Math.min(P(t, t0, t0 + .25), 1 - P(t, t1 - .3, t1));
+  const trace = [
+    ['Thinking', 'Rollover must use the user’s timezone, not the server’s. UTC+13 users lose a day.', true],
+    ['Tester', '$ go test ./core/streaks/... -run Rollover', false],
+    ['Tester', '--- PASS TestRollover/UTC   --- PASS TestRollover/UTC-8', false],
+    ['Tester', '--- FAIL TestRollover/UTC+13', false],
+    ['Thinking', 'Real bug, not a test bug. Writing it to GBrain so nobody repeats it', true],
+  ];
+  const vis = Math.floor(P(t, t0 + .2, t0 + 5.5)*trace.length + .999);
+  const sub = (name, kind, model, st, stc, now, sel) => `<div style="border:3px solid #2A2536;border-radius:14px;background:#fff;padding:12px 14px;display:flex;flex-direction:column;gap:8px;${sel ? 'outline:4px solid #E7B12F;outline-offset:3px' : ''}">
+    <div style="display:flex;gap:10px;align-items:center"><span style="width:30px;height:34px;border-radius:9px;background:#DCD5EE;border:3px solid #2A2536;display:grid;place-items:center"><span style="width:16px;height:7px;border-radius:4px;background:#4F8DF5"></span></span>
+    <div style="flex:1"><div class="h" style="font-weight:700;font-size:21px;line-height:1">${name}</div><div style="font:800 13px Nunito;color:#645B75">${kind} · ${model}</div></div>
+    <span class="chip" style="font-size:14px;padding:3px 10px;background:${stc}">${st}</span></div><div style="font:800 15px/1.4 Nunito">${now}</div></div>`;
+  const todo = (st, txt) => `<div style="display:flex;gap:10px;align-items:center;font:800 17px Nunito;color:${st === 'done' ? '#645B75' : '#2A2536'}"><span style="width:20px;height:20px;border-radius:5px;${st === 'done' ? 'background:#34B386' : st === 'now' ? 'background:#FFE08A;border:3px solid #2A2536' : 'border:3px solid #B8AFA0'};box-sizing:border-box"></span><span style="${st === 'done' ? 'text-decoration:line-through' : ''}">${txt}</span></div>`;
+  return `<div style="position:absolute;inset:30px 40px 150px;background:#3A3F55;border:4px solid #2A2536;border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:12px;opacity:${op};box-shadow:0 10px 0 rgba(20,14,30,.6)">
+    <div style="display:flex;gap:12px;align-items:center;color:#E8E3F5;font:700 20px Fredoka">Studio <span style="opacity:.5">›</span> <span style="color:#FFE08A">Ada’s computer</span><span style="margin-left:auto;font:800 15px Nunito;opacity:.8">QM session · parrot · throne/ada-streak-tests</span></div>
+    <div style="flex:1;background:#FFFCF6;border:3px solid #2A2536;border-radius:16px;padding:20px;display:grid;grid-template-columns:360px 1fr;gap:22px;min-height:0">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:12px;align-items:center">${av('A', ROLE.eng, 50)}<div><div class="h" style="font-weight:700;font-size:28px;line-height:1">Ada</div><div style="font:800 15px Nunito;color:#645B75">Engineer · Codex via QM</div></div></div>
+        <div style="background:#F3ECE0;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px"><span class="lbl">Her plan</span>
+          ${todo('done', 'Map every StreakService caller')}${todo('now', 'Table tests for day rollover')}${todo('todo', 'Review against HEX-2')}${todo('todo', 'Present proof')}</div>
+        <div style="background:#EEE8FF;border:3px dashed #7C5CFF;border-radius:14px;padding:12px;display:flex;gap:10px;align-items:center;font:800 16px Nunito">${brainIcon(22)}<span>12 GBrain recalls this task</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div style="align-self:center;border:3px solid #2A2536;border-radius:999px;padding:7px 18px;background:#D9E6FF;font:700 20px Fredoka">Ada · QM swarm of 3 helpers</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+          ${sub('Scout', 'Explore', 'Haiku', 'Done', '#ECE8F3', 'Found 14 callers across 6 packages', false)}
+          ${sub('Tester', 'Swarm worker', 'Opus', 'Working', '#D8F5E8', 'Writing rollover tests. 9 of 12 pass.', true)}
+          ${sub('Checker', 'Reviewer', 'Sonnet', 'Waiting', '#FFF2D6', 'Starts when Tester finishes', false)}</div>
+        <div style="flex:1;background:#1F1B2B;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-height:0">
+          <span class="lbl" style="color:#B7AED0">Live trace</span>
+          ${trace.slice(0, vis).map(([k, txt, th]) => `<div style="display:flex;gap:12px;align-items:flex-start"><span class="tag" style="background:${th ? '#7B2D5A' : '#4A4560'};flex-shrink:0">${k}</span><span class="${th ? '' : 'mono'}" style="font:${th ? 'italic 800 18px/1.4 Nunito' : "600 15px/1.5 'JetBrains Mono'"};color:${txt.includes('FAIL') ? '#FF9AAE' : th ? '#F2D9FF' : '#E8E3F5'}">${txt}</span></div>`).join('')}
+        </div>
+      </div>
+    </div></div>`;
+}
+
+function proofModal(t){
+  const t0 = A('proof') + .1, t1 = E('ship') + .55;
+  if (t < t0 || t > t1) return '';
+  const k = t < t0 + .4 ? back(P(t, t0, t0 + .4)) : 1, op = 1 - P(t, t1 - .3, t1);
+  const show = at => `opacity:${eout(P(t, at, at + .3))};transform:translateY(${(1 - eout(P(t, at, at + .3)))*30}px)`;
+  const phone = (dark, lbl, at) => { const bg = dark ? '#15131C' : '#FAF7F1', fg = dark ? '#EDE8F7' : '#2A2536', card = dark ? '#26222F' : '#FFFFFF';
+    return `<div style="display:flex;flex-direction:column;gap:6px;align-items:center;${show(at)}"><div style="width:190px;height:380px;border:4px solid #2A2536;border-radius:28px;background:${bg};padding:28px 12px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px">
+      <div style="font:900 15px Nunito;color:${fg}">Go Pro</div>
+      ${['Monthly · $9.99', 'Yearly · $59.99'].map((p, i) => `<div style="border-radius:12px;padding:12px;background:${card};border:2px solid ${i ? '#E7B12F' : 'transparent'};${i && dark ? 'box-shadow:0 0 14px rgba(231,177,47,.35)' : ''};font:800 13px Nunito;color:${fg}">${p}</div>`).join('')}
+      ${[70, 54, 80, 60].map(w => `<div style="height:7px;width:${w}%;border-radius:4px;background:${fg};opacity:.35"></div>`).join('')}
+      <div style="margin-top:auto;height:34px;border-radius:10px;background:#4F8DF5"></div></div><span style="font:900 15px Nunito;color:#645B75">${lbl}</span></div>`; };
+  const shipped = t > A('ship') + .1;
+  return `<div style="position:absolute;inset:0;background:rgba(24,18,36,.45);opacity:${op}"></div>
+  <div class="card" style="position:absolute;left:150px;right:150px;top:120px;bottom:150px;padding:24px 28px;display:flex;flex-direction:column;gap:16px;transform:scale(${k});opacity:${op}">
+    <div style="display:flex;gap:14px;align-items:center">${av('J', ROLE.qa, 54)}<div style="flex:1"><div class="lbl">Joan presents</div><div class="h" style="font-weight:700;font-size:34px;line-height:1.05">Paywall dark mode + QA inbox paging</div></div>
+      <span class="chip" style="background:#D8F5E8">3 of 3 proof types</span></div>
+    <div style="flex:1;display:grid;grid-template-columns:auto 1fr;gap:26px;min-height:0">
+      <div style="display:flex;gap:16px;align-items:flex-start">${phone(false, 'Screenshot · light', A('proof') + 1.9)}${phone(true, 'Screenshot · dark', A('proof') + 2.3)}
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center;${show(A('proof') + 3.3)}"><div style="width:280px;height:380px;border:4px solid #2A2536;border-radius:16px;background:#1F1B2B;display:grid;place-items:center;position:relative">
+          <span style="width:84px;height:84px;border-radius:50%;background:#E7B12F;border:4px solid #2A2536;display:grid;place-items:center"><svg width="34" height="34" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="#2A2536"/></svg></span>
+          <span class="mono" style="position:absolute;left:14px;bottom:12px;color:#E8E3F5;font-size:15px">0:24 · simulator recording</span></div><span style="font:900 15px Nunito;color:#645B75">Recording</span></div></div>
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="background:#1F1B2B;color:#E8E3F5;border-radius:14px;padding:16px 18px;${show(A('proof') + 4.3)}"><span class="lbl" style="color:#B7AED0">Real test output</span>
+          <div class="mono" style="font-size:16px;line-height:1.6;margin-top:6px">$ npx jest paywall/ --maxWorkers=4<br><span style="color:#7FE0A8">PASS</span> paywall/Paywall.dark.test.tsx<br><span style="color:#7FE0A8">PASS</span> paywall/contrast.test.ts<br>Tests: 18 passed, 18 total</div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;${show(A('proof') + 4.8)}">
+          ${[['Files', '7'], ['GBrain recalls', '9'], ['New pages', '+2']].map(([a, b]) => `<div style="border:3px solid #2A2536;border-radius:12px;padding:10px;text-align:center;background:#F3ECE0"><div class="h" style="font-weight:700;font-size:32px">${b}</div><div class="lbl">${a}</div></div>`).join('')}</div>
+        <div style="margin-top:auto;display:flex;gap:12px;align-items:center">
+          <span class="btn ${shipped ? 'press gold' : 'gold'}" style="font-size:26px">Ship it <span style="font:900 14px Nunito;opacity:.6">↵</span></span><span class="btn">Send back</span>
+          ${shipped ? `<span class="chip" style="background:#D8F5E8;font-size:18px">PR #1736 opened · CI green</span>` : ''}</div>
+      </div></div></div>`;
+}
+
+function mergePanel(t){
+  const t0 = A('merge') - .1, t1 = E('merge') + 1.2;
+  if (t < t0 || t > t1) return '';
+  const slide = (1 - eout(P(t, t0, t0 + .45)))*-720, op = 1 - P(t, t1 - .35, t1);
+  const rows = [['Sophie', 'parrot #1734', 'Meta iOS 14+ fields', A('merge') + .5], ['Joan', 'parrot #1736', 'Paywall dark mode', A('merge') + .9], ['Guido', 'macbridge #88', 'Relay reconnect backoff', A('merge') + 1.3]];
+  const pressed = t > A('merge') + 2.1;
+  return `<div class="card" style="position:absolute;left:28px;top:140px;width:640px;padding:20px;display:flex;flex-direction:column;gap:12px;transform:translateX(${slide}px);opacity:${op}">
+    <div style="display:flex;gap:10px;align-items:center"><span class="h" style="font-weight:700;font-size:28px">Merge yard</span><span style="margin-left:auto;font:800 16px Nunito;color:#645B75">3 green</span></div>
+    ${rows.map(([n, pr, title, at]) => `<div style="display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:#F3ECE0">
+      <span style="width:26px;height:26px;border-radius:7px;border:3px solid #2A2536;box-sizing:border-box;background:${t > at ? '#34B386' : '#fff'};display:grid;place-items:center;color:#fff;font:900 15px Nunito">${t > at ? '✓' : ''}</span>
+      <div style="flex:1"><div style="font:900 19px Nunito">${title}</div><div style="font:800 15px Nunito;color:#645B75">${n} · ${pr} · checks passed</div></div></div>`).join('')}
+    <span class="btn ${pressed ? 'press gold' : 'gold'}" style="align-self:flex-start;font-size:24px">Merge 3 into main</span></div>`;
+}
+
+function toast(t){
+  const t0 = A('multi') + .2, t1 = A('hand') + 1.6;
+  if (t < t0 || t > t1) return '';
+  const y = t < t0 + .4 ? (1 - back(P(t, t0, t0 + .4)))*-160 : t > t1 - .4 ? P(t, t1 - .4, t1)*-160 : 0;
+  return `<div class="card" style="position:absolute;left:50%;top:140px;transform:translate(-50%, ${y}px);padding:14px 22px;display:flex;gap:14px;align-items:center;background:#E3FFFB">
+    ${av('B', '#1F9E97', 48)}<div><div class="h" style="font-weight:700;font-size:26px;line-height:1.1">Bill Land joined the studio</div><div style="font:800 16px Nunito;color:#645B75">Same QM org · same line · same GBrain</div></div></div>`;
+}
+
+function handToast(t){
+  const t0 = A('hand') + 2.0, t1 = A('bill') + .2;
+  if (t < t0 || t > t1) return '';
+  const k = back(P(t, t0, t0 + .35)), op = 1 - P(t, t1 - .3, t1);
+  return `<div class="card" style="position:absolute;left:50%;top:140px;transform:translate(-50%,0) scale(${k});opacity:${op};padding:14px 22px;display:flex;gap:12px;align-items:center;background:#FFFCF6">
+    ${av('E', '#7B2D5A', 44)}<span style="font:900 22px Nunito">handed</span>
+    ${av('B', ROLE.eng, 40)}${av('F', ROLE.evt, 40)}${av('D', ROLE.evt, 40)}<span style="font:900 22px Nunito">to</span>${av('B', '#1F9E97', 44)}
+    <span class="h" style="font-weight:700;font-size:24px;margin-left:6px">Bill</span></div>`;
+}
+function billCursor(t){
+  const t0 = 1e9, t1 = 0;
+  if (t < t0 || t > t1) return '';
+  const [x, y] = keyed(t, [[t0, 1560, 760], [t0 + 1.5, 1180, 600], [A('climax'), 900, 470], [t1, 520, 300]]);
+  return `<div style="position:absolute;left:${x}px;top:${y}px;display:flex;gap:6px;align-items:flex-start"><svg width="30" height="34" viewBox="0 0 30 34"><path d="M3 2 L3 28 L10 21 L15 32 L20 30 L15 19 L25 19 Z" fill="#1F9E97" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>
+    <span style="background:#1F9E97;color:#fff;font:800 16px Nunito;padding:3px 10px;border-radius:8px;margin-top:22px">Bill</span></div>`;
+}
+
+function frameCard(t){
+  const t0 = A('frame') + .05, t1 = A('frame') + 2.4;
+  if (t < t0 || t > t1) return '';
+  const k1 = back(P(t, t0, t0 + .35)), k2 = back(P(t, t0 + 1.15, t0 + 1.5)), op = 1 - P(t, t1 - .35, t1);
+  return `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;opacity:${op}">
+    <div class="card" style="padding:18px 30px;transform:scale(${k1});background:#FDE3E7;display:flex;gap:14px;align-items:center"><span class="lbl" style="font-size:18px;color:#A8243C">QM · open problem</span><span class="h" style="font-weight:700;font-size:46px">You can’t see the swarm</span></div>
+    <div class="card" style="padding:18px 30px;transform:scale(${k2});background:#FFE9A8;display:flex;gap:14px;align-items:center"><svg width="44" height="38" viewBox="0 0 34 30"><path d="M3 26 L3 8 L10 16 L17 3 L24 16 L31 8 L31 26 Z" fill="#E7B12F" stroke="#2A2536" stroke-width="2.5" stroke-linejoin="round"/></svg><span class="h" style="font-weight:700;font-size:46px">So we built QM a front end</span></div></div>`;
+}
+function climaxCard(t){
+  const t0 = T_BILLRULE() + 1.3, t1 = E('climax') + 1.6;
+  if (t < t0 || t > t1) return '';
+  const k = back(P(t, t0, t0 + .35)), op = 1 - P(t, t1 - .35, t1);
+  const lit = CLIMAX_DESKS.filter((_, i) => t > T_BILLRULE() + 2.5 + i*.38).length;
+  return `<div class="card" style="position:absolute;left:60px;top:150px;width:520px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;transform:scale(${k});transform-origin:0 0;opacity:${op};background:#FFF6D6">
+    <div style="display:flex;gap:10px;align-items:center">${brainIcon(28)}<span class="h" style="font-weight:700;font-size:26px">Pinned to GBrain</span><span style="margin-left:auto">${av('B', '#1F9E97', 34)}</span></div>
+    <div style="font:900 24px/1.3 Nunito">No parrot merges on Fridays</div>
+    <div style="display:flex;gap:8px;align-items:center">${CLIMAX_DESKS.map((_, i) => `<span style="width:40px;height:14px;border-radius:5px;border:2px solid #2A2536;background:${i < lit ? '#E7B12F' : '#fff'}"></span>`).join('')}<span class="h" style="font-weight:700;font-size:24px;margin-left:8px">${lit} desks know it</span></div></div>`;
+}
+
+const PLAYBOOKS = [
+  {id:'support', name:'How we handle support', team:'support', steps:6, users:4, from:'212 tickets', updated:'today',
+   list:[['Check GBrain for the customer’s history', 'from Sam · 3 Sep'], ['Reproduce it on the shared prod test account', 'from Hedy · 12 Sep'], ['Refunds under $50: approve, no need to ask', 'decided by Erik · 18 Sep'], ['Over $50: bring it to the throne', 'decided by Erik · 18 Sep'], ['Reply in Erik’s voice: short, no emojis', 'learned from 40 edits'], ['Write the fix back as a lesson', 'from Omar · 21 Sep']],
+   who:[['S','#2BB5A8'],['H','#2BB5A8'],['O','#2BB5A8'],['R','#FF7A59']]},
+  {id:'review', name:'How we review PRs', team:'parrot', steps:8, users:9, from:'146 PRs', updated:'2h ago',
+   list:[['Run the tests; read every line of the diff', 'from 146 reviews'], ['Check the HEX-2 and HEX-9 architecture gates', 'from Ada · 22 Sep'], ['UI change? Screenshots in both themes', 'from Erik’s send-backs'], ['Migrations: check order against staging', 'from Barbara · 25 Sep'], ['Flaky test? Rerun once, then file it', 'from Ken · 19 Sep']],
+   who:[['A','#4F8DF5'],['L','#4F8DF5'],['B','#4F8DF5'],['K','#34B386'],['G','#EE77AE'],['T','#4F8DF5']]},
+  {id:'ship', name:'How we ship', team:'parrot', steps:7, users:11, from:'38 releases', updated:'5 min ago',
+   list:[['Proof attached: screenshots or real test output', 'from 38 releases'], ['CI green, then the merge yard', 'from Joan · 20 Sep'], ['Parrot merges deploy to prod: watch Sentry for 10 min', 'from an incident · 14 Sep'], ['Post every stage to #releases', 'decided by Erik · 25 Sep'], ['Marketing sends the launch email', 'from Maya · today']],
+   who:[['A','#4F8DF5'],['J','#34B386'],['S','#4F8DF5'],['L','#4F8DF5'],['B','#4F8DF5'],['K','#34B386'],['M','#FF7A59']]},
+  {id:'email', name:'How we write launch emails', team:'marketing', steps:5, users:2, from:'19 emails', updated:'today', list:[], who:[]},
+  {id:'events', name:'How we run events', team:'events', steps:9, users:2, from:'7 events', updated:'yesterday', list:[], who:[]},
+];
+function playbookPanel(t){
+  const t0 = A('playbooks') + .55, t1 = E('playbooks') + .35;
+  if (t < t0 || t > t1) return '';
+  const op = Math.min(P(t, t0, t0 + .25), 1 - P(t, t1 - .3, t1)), k = back(P(t, t0, t0 + .4));
+  const sel = t > t0 + 5.2 ? 'ship' : t > t0 + 4.0 ? 'review' : 'support';
+  const pb = PLAYBOOKS.find(p => p.id === sel), whoAt = t0 + 7.2;
+  const cards = PLAYBOOKS.map((p, i) => {
+    const on = p.id === sel, kk = back(P(t, t0 + .2 + i*.12, t0 + .5 + i*.12));
+    return `<div style="border:3px solid #2A2536;border-radius:14px;padding:12px 14px;background:${on ? '#FFE9A8' : '#FFFCF6'};${on ? 'outline:4px solid #E7B12F;outline-offset:2px;' : ''}transform:scale(${kk});display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;gap:8px;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:${TEAM_COL[p.team]}"></span><span class="h" style="font-weight:700;font-size:21px">${p.name}</span></div>
+      <div style="font:800 15px Nunito;color:#645B75">${p.steps} steps · learned from ${p.from} · updated ${p.updated}</div>
+      <div style="font:900 16px Nunito;color:#5B3FE0">Used by ${p.users} workers</div></div>`;
+  }).join('');
+  const steps = pb.list.map(([a, src], i) => `<div style="display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;opacity:${eout(P(t, t0 + .4 + i*.08, t0 + .7 + i*.08))}">
+    <span class="h" style="width:34px;height:34px;border-radius:50%;background:#2A2536;color:#FFFCF6;display:grid;place-items:center;font-weight:700;font-size:17px">${i + 1}</span>
+    <div><div style="font:900 19px/1.35 Nunito">${a}</div><div style="font:800 14px Nunito;color:#7C5CFF">${src}</div></div></div>`).join('');
+  const who = pb.who.map(([l, c], i) => `<span style="transform:scale(${back(P(t, whoAt + i*.08, whoAt + .3 + i*.08))});display:inline-block;margin-left:${i ? -8 : 0}px">${av(l, c, 46)}</span>`).join('');
+  return `<div style="position:absolute;inset:0;background:rgba(18,12,36,.55);opacity:${op}"></div>
+  <div class="card" style="position:absolute;left:70px;right:70px;top:40px;bottom:150px;padding:22px 26px;display:flex;flex-direction:column;gap:16px;opacity:${op};transform:scale(${k})">
+    <div style="display:flex;gap:14px;align-items:center">${brainIcon(38)}<div><div class="h" style="font-weight:700;font-size:34px;line-height:1">Company memory</div><div style="font:800 16px Nunito;color:#645B75">GBrain · 12,409 pages · 38 playbooks · procedures recorded by Memorable</div></div>
+      <div style="margin-left:auto;display:flex;gap:8px">${['Playbooks', 'Decisions', 'People', 'Lessons'].map((x, i) => `<span class="chip" style="${i ? '' : 'background:#2A2536;color:#FFFCF6'}">${x}</span>`).join('')}</div></div>
+    <div style="flex:1;display:grid;grid-template-columns:520px 1fr;gap:24px;min-height:0">
+      <div style="display:flex;flex-direction:column;gap:12px">${cards}</div>
+      <div style="border:3px solid #2A2536;border-radius:16px;padding:20px 22px;background:#FFFFFF;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:10px;align-items:baseline"><span class="h" style="font-weight:700;font-size:30px">${pb.name}</span><span class="chip" style="margin-left:auto;background:#EEE8FF;font-size:15px">Writes itself · ${pb.updated}</span></div>
+        <div style="display:flex;flex-direction:column;gap:14px">${steps}</div>
+        <div style="margin-top:auto;border-top:3px dashed #E4DBCB;padding-top:14px;display:flex;gap:14px;align-items:center;opacity:${P(t, whoAt - .2, whoAt)}">
+          <span class="lbl" style="font-size:16px">Used by ${pb.users} workers</span><span style="display:flex">${who}</span>
+          <span style="margin-left:auto;font:800 16px Nunito;color:#645B75">last used 4 min ago by Joan</span></div>
+      </div></div></div>`;
+}
+
+function outcomesPanel(t){
+  const t0 = A('outcomes') + .1, t1 = E('outcomes') + .5;
+  if (t < t0 || t > t1) return '';
+  const op = Math.min(P(t, t0, t0 + .25), 1 - P(t, t1 - .3, t1)), link = t > t0 + 6.4;
+  const col = (title, ico, at, body) => `<div style="display:flex;flex-direction:column;gap:10px;opacity:${eout(P(t, at, at + .3))};transform:translateY(${(1 - eout(P(t, at, at + .3)))*40}px)">
+    <div style="display:flex;gap:10px;align-items:center">${ico}<span class="h" style="font-weight:700;font-size:26px">${title}</span></div>${body}</div>`;
+  const hl = on => on && link ? 'outline:4px solid #7C5CFF;outline-offset:2px;background:#F1ECFF;' : '';
+  const tickets = [['PARROT-975', 'Playlist flicker on feed resume', 'L', '#4F8DF5', 'Linus · in progress', true], ['PARROT-1202', 'Paywall dark mode', 'M', '#FF7A59', 'Joan + Maya · shipped', false], ['PARROT-1219', 'Streak rollover for UTC+13', 'A', '#4F8DF5', 'Ada · in review', false], ['PARROT-1224', 'Refund flow for Apple Pay', 'S', '#2BB5A8', 'Sam · todo', false]]
+    .map(([id, title, l, c, st, x], i) => `<div style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:#F3ECE0;${hl(x)}opacity:${eout(P(t, t0 + 2.0 + i*.15, t0 + 2.3 + i*.15))}">
+      <span class="mono" style="font-size:14px;font-weight:700;color:#5E6AD2">${id}</span><div style="flex:1;min-width:0"><div style="font:900 17px Nunito">${title}</div><div style="font:800 14px Nunito;color:#645B75">${st}</div></div>${av(l, c, 32)}
+      ${x && link ? '<span class="tag" style="background:#7C5CFF">112 feedback</span>' : ''}</div>`).join('');
+  const deploys = [['v3.1.226', 'prod', 'Paywall dark mode · PR #1736', '2 min ago', true], ['v3.1.225.1', 'prod', 'QA feedback inbox · PR #1707', 'today 11:40', false], ['build 5.8.19', 'TestFlight', 'Feed instant-play fixes', 'today 09:12', false], ['v3.1.224', 'prod', 'Black-box test shards · PR #1730', 'yesterday', false]]
+    .map(([v, env, what, when, first], i) => `<div style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:${first ? '#D8F5E8' : '#F3ECE0'};opacity:${eout(P(t, t0 + 3.9 + i*.15, t0 + 4.2 + i*.15))}">
+      <span style="width:12px;height:12px;border-radius:50%;background:#34B386;border:2px solid #2A2536"></span><div style="flex:1"><div style="font:900 17px Nunito">${v} <span class="tag" style="background:${env === 'prod' ? '#2F8F6B' : '#4F8DF5'}">${env}</span></div><div style="font:800 14px Nunito;color:#645B75">${what}</div></div><span style="font:800 14px Nunito;color:#645B75">${when}</span></div>`).join('');
+  const quotes = ['“video flickers when I come back to the app”', '“black flash before every lesson video”', '“screen goes dark for a sec, annoying”'];
+  const fb = `<div style="border:3px solid #2A2536;border-radius:14px;padding:14px;background:#FFFFFF;${hl(true)}opacity:${eout(P(t, t0 + 5.1, t0 + 5.4))}">
+      <div style="display:flex;align-items:baseline;gap:10px"><span class="h" style="font-weight:700;font-size:44px;color:#7C5CFF">112</span><span style="font:900 18px Nunito">reports: flicker on resume</span></div>
+      ${quotes.map((q, i) => `<div style="font:italic 800 16px/1.4 Nunito;color:#2A2536;margin-top:6px;opacity:${eout(P(t, t0 + 5.4 + i*.2, t0 + 5.7 + i*.2))}">${q}</div>`).join('')}
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><span class="chip" style="font-size:14px">App Store 41</span><span class="chip" style="font-size:14px">In-app 58</span><span class="chip" style="font-size:14px">Support 13</span></div>
+      ${link ? '<div style="margin-top:10px;font:900 16px Nunito;color:#5B3FE0">→ linked to PARROT-975 · Linus is on it</div>' : ''}</div>
+    <div style="border:3px solid #2A2536;border-radius:14px;padding:12px 14px;background:#F3ECE0;opacity:${eout(P(t, t0 + 5.9, t0 + 6.2))}"><span style="font:900 17px Nunito">38 reports: “add Apple Pay refunds”</span><div style="font:800 14px Nunito;color:#645B75">→ PARROT-1224 · Sam</div></div>`;
+  const lin = `<svg width="28" height="28" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#5E6AD2"/><path d="M6 13l5 5M6 9l9 9M8 6l10 10M12 5l7 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  const dep = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2F8F6B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4 2 6 6 6 10l-3 3H9l-3-3c0-4 2-8 6-10z"/><circle cx="12" cy="10" r="2"/><path d="M9 19l-2 2M15 19l2 2"/></svg>`;
+  return `<div class="card" style="position:absolute;left:60px;right:60px;top:140px;bottom:150px;padding:22px 26px;display:flex;flex-direction:column;gap:16px;opacity:${op}">
+    <div style="display:flex;gap:12px;align-items:center"><span class="h" style="font-weight:700;font-size:32px">Outcomes</span><span style="font:800 17px Nunito;color:#645B75">engineering · last 7 days</span>
+      <span class="chip" style="margin-left:auto;background:${t > t0 + 8.1 ? '#EEE8FF' : '#F3ECE0'}">${brainIcon(20)} Linked in GBrain</span></div>
+    <div style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;min-height:0">
+      ${col('Linear', lin, t0 + 1.8, tickets)}${col('Deploys', dep, t0 + 3.7, deploys)}${col('User feedback', brainIcon(28), t0 + 4.9, fb)}</div></div>`;
+}
+
+// real footage slot: ffmpeg overlays real/real_proof.mp4 into the box at x=1180,y=40,681x860
+window.REAL_SLOT = {x:1180, y:40, w:681, h:860};
+function realFrame(t){
+  const t0 = A('real') - .1, t1 = E('real') + .5;
+  if (t < t0 || t > t1) return '';
+  const op = Math.min(P(t, t0, t0 + .2), 1 - P(t, t1 - .2, t1));
+  const R = window.REAL_SLOT;
+  return `<div style="position:absolute;inset:0;background:#1A1430;opacity:${op}"></div>
+  <div style="position:absolute;left:${R.x - 8}px;top:${R.y - 8}px;width:${R.w + 16}px;height:${R.h + 16}px;border:5px solid #FF4D6A;border-radius:14px;box-sizing:border-box;opacity:${op};background:#000"></div>
+  <div style="position:absolute;left:80px;top:120px;width:1020px;display:flex;flex-direction:column;gap:26px;opacity:${op};color:#FFFCF6">
+    <div style="display:flex;gap:14px;align-items:center"><span style="width:22px;height:22px;border-radius:50%;background:#FF4D6A;box-shadow:0 0 0 ${6 + 4*Math.sin(t*6)}px rgba(255,77,106,.3)"></span>
+      <span class="h" style="font-weight:700;font-size:40px;letter-spacing:.04em">REAL QM SESSION</span></div>
+    <div style="font:800 26px Nunito;color:#CFC8E6">Recorded today: the live Throne app on the real QM fork.</div>
+    <div class="card" style="padding:22px 26px;display:flex;flex-direction:column;gap:14px;color:#2A2536">
+      <div style="display:flex;gap:14px;align-items:center">${av('M', ROLE.sup, 52)}<div><div class="h" style="font-weight:700;font-size:30px;line-height:1.05">Maya · Support</div><div style="font:800 17px Nunito;color:#645B75">QM session · no repo</div></div></div>
+      <div style="font:800 22px/1.4 Nunito">“A customer says their streak reset after flying from New York to Tokyo.”</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span class="chip" style="font-size:19px;background:#D8F5E8;align-self:flex-start">✓ Wrote a short, kind reply with a worked example</span>
+        <span class="chip" style="font-size:19px;background:#D8F5E8;align-self:flex-start">✓ Proof: ran Python to check the time-zone math · exit 0</span>
+        <span class="chip" style="font-size:19px;background:#FFE9A8;align-self:flex-start">Accepted from the throne, no PR needed</span></div></div></div>`;
+}
+
+// small real-footage picture-in-picture slots (ffmpeg overlays the clips)
+window.PIP_SLOT = {x:44, y:552, w:560, h:315};
+const PIPS = [['real_brain', () => A('write') - .2, () => E('write') + .5, 'Real: teaching GBrain in the live app'], ['real_multiplayer', () => A('multi') + .3, () => A('hand') + 2.0, 'Real: Bill joins from his own login']];
+window.PIP_TIMES = () => PIPS.map(([id, a, b, l]) => ({id, a:a(), b:b()}));
+function pipFrames(t){
+  const R = window.PIP_SLOT;
+  return PIPS.map(([id, a, b, label]) => { const t0 = a(), t1 = b(); if (t < t0 || t > t1) return '';
+    const op = Math.min(P(t, t0, t0 + .15), 1 - P(t, t1 - .15, t1));
+    return `<div style="position:absolute;left:${R.x - 6}px;top:${R.y - 6}px;width:${R.w + 12}px;height:${R.h + 12}px;border:5px solid #FF4D6A;border-radius:12px;box-sizing:border-box;background:#000;opacity:${op}"></div>
+      <div style="position:absolute;left:${R.x}px;top:${R.y - 48}px;display:flex;gap:8px;align-items:center;background:#FF4D6A;color:#fff;border-radius:9px;padding:5px 12px;font:900 17px Nunito;opacity:${op}"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span>${label}</div>`; }).join('');
+}
+
+function automationsCard(t){
+  const t0 = A('auto') + .15, t1 = A('auto') + 4.3;
+  if (t < t0 || t > t1) return '';
+  const op = Math.min(P(t, t0, t0 + .2), 1 - P(t, t1 - .3, t1)), k = back(P(t, t0, t0 + .35));
+  const rows = [['clock', 'Monthly close', '1st of the month · 09:00', 'Finance', '#2EAD6B'], ['clock', 'Support digest', 'Mondays · 08:00', 'Support', '#2BB5A8'],
+    ['hook', 'Payout failed', 'Stripe webhook', 'Support', '#2BB5A8'], ['clock', 'Flaky test sweep', 'Nightly · 02:00', 'Engineering', '#4F8DF5'], ['hook', 'New review under 3 stars', 'App Store watch', 'Marketing', '#FF7A59']];
+  const ico = k2 => k2 === 'clock' ? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2A2536" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`
+    : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2A2536" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg>`;
+  return `<div class="card" style="position:absolute;left:40px;top:130px;width:620px;padding:20px;display:flex;flex-direction:column;gap:10px;opacity:${op};transform:scale(${k});transform-origin:0 0">
+    <div style="display:flex;gap:10px;align-items:baseline"><span class="h" style="font-weight:700;font-size:30px">Automations</span><span style="font:800 16px Nunito;color:#645B75">QM crons, watches and webhooks</span></div>
+    ${rows.map(([ic, name, when, team, col], i) => `<div style="display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:${i === 0 && t > t0 + 2.4 ? '#D9FFE9' : '#F3ECE0'};${i === 0 && t > t0 + 2.4 ? 'outline:4px solid #2EAD6B;outline-offset:2px;' : ''}opacity:${eout(P(t, t0 + .2 + i*.12, t0 + .5 + i*.12))}">
+      ${ico(ic)}<div style="flex:1"><div style="font:900 19px Nunito">${name}</div><div style="font:800 15px Nunito;color:#645B75">${when}</div></div>
+      <span class="tag" style="background:${col};font-size:13px">${team}</span></div>`).join('')}</div>`;
+}
+function financeReport(t){
+  const t0 = A('auto') + 8.5, t1 = E('auto') + 1.5;
+  if (t < t0 || t > t1) return '';
+  const op = Math.min(P(t, t0, t0 + .2), 1 - P(t, t1 - .3, t1)), k = back(P(t, t0, t0 + .4));
+  const vals = [141, 152, 149, 163, 171, 184], mx = 200;
+  const bars = vals.map((v, i) => { const h = 150*v/mx*eout(P(t, t0 + .3 + i*.08, t0 + .7 + i*.08)); return `<rect x="${20 + i*70}" y="${170 - h}" width="44" height="${h}" rx="6" fill="${i === 5 ? '#2EAD6B' : '#BFE8D2'}" stroke="#2A2536" stroke-width="2.5"/><text x="${42 + i*70}" y="194" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="15" fill="#645B75">${['Apr','May','Jun','Jul','Aug','Sep'][i]}</text>`; }).join('');
+  const stat = (l, v, d) => `<div style="border:3px solid #2A2536;border-radius:12px;padding:10px 12px;background:#F3ECE0"><div class="lbl">${l}</div><div class="h" style="font-weight:700;font-size:30px;line-height:1.1">${v}</div><div style="font:800 14px Nunito;color:${d.startsWith('+') ? '#2F8F6B' : '#645B75'}">${d}</div></div>`;
+  return `<div class="card" style="position:absolute;right:40px;top:130px;width:800px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;opacity:${op};transform:scale(${k});transform-origin:100% 0">
+    <div style="display:flex;gap:12px;align-items:center">${av('P', ROLE.fin, 50)}<div style="flex:1"><div class="lbl">Penny presents</div><div class="h" style="font-weight:700;font-size:30px;line-height:1.05">September close</div></div>
+      <span class="chip" style="background:#D9FFE9;font-size:15px">Automation · Monthly close</span></div>
+    <div style="display:grid;grid-template-columns:440px 1fr;gap:18px;align-items:end">
+      <svg width="440" height="200" viewBox="0 0 440 200">${bars}</svg>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${stat('Revenue', '$184.2k', '+7.6% MoM')}${stat('Gross margin', '81%', '+2 pts')}${stat('Burn', '$96k', 'on plan')}${stat('Runway', '22 mo', 'at current burn')}</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span class="chip" style="font-size:17px;background:#D8F5E8;align-self:flex-start;opacity:${P(t, t0 + 1.0, t0 + 1.3)}">✓ Stripe payouts reconciled with the bank export · 0 mismatches</span>
+      <span class="chip" style="font-size:17px;background:#D8F5E8;align-self:flex-start;opacity:${P(t, t0 + 1.4, t0 + 1.7)}">✓ P&amp;L sheet attached · close-sep.xlsx</span></div>
+    <div style="display:flex;gap:10px;align-items:center"><span class="btn gold">Approve</span><span class="btn">Send to Bill</span><span style="margin-left:auto;font:800 13px Nunito;color:#9A91A8">demo data</span></div></div>`;
+}
+
+let lastUI = '';
+function renderUI(t){
+  const office = t > A('tour') - .3 && t < A('campus') + 1.1 && !within(t, A('real') - .1, E('real') + .5);
+  const drillOn = (t > A('drill') + 1.05 && t < E('drill') + .45) || (t > A('playbooks') + .55 && t < E('playbooks') + .35);
+  const showTop = office && !drillOn;
+  const showLine = office && !drillOn && !within(t, A('ask') - .4, E('go') + 1.2) && !within(t, A('proof'), E('ship') + .6) && !within(t, A('merge') - .2, E('auto') + 1.4) && t < A('multi');
+  const html = topbar(t, showTop) + linePanel(t, showLine) + chatPanel(t) + frameCard(t) + computerPanel(t) + playbookPanel(t) + outcomesPanel(t) + automationsCard(t) + financeReport(t) + proofModal(t) + mergePanel(t) + realFrame(t) + pipFrames(t) + toast(t) + handToast(t) + billCursor(t) + climaxCard(t);
+  if (html !== lastUI){ ui.innerHTML = html; lastUI = html; }
+}
+
+/* ---- chaos opener ---- */
+const TERM_LINES = [
+  ['claude · parrot-feed', ['▸ Reading PlaylistSurface.tsx', '▸ Editing usePosterSwap.ts', '<span class="ask"> Allow Bash(npx jest)? [y/n] </span>', 'waiting for input…']],
+  ['codex · macbridge', ['$ npm test', '<span class="err">✗ 3 failing</span>', '▸ Retrying relay auth', '<span class="err">401 Unauthorized</span>']],
+  ['claude · streaks', ['▸ go test ./core/...', '<span class="ok">ok core/streaks 0.41s</span>', '▸ Now writing rollover tests', '▸ Thinking…']],
+  ['claude · paywall', ['<span class="ask"> Which color token? (1) (2) (3) </span>', 'waiting for input…', '', '']],
+  ['codex · one-app', ['$ maestro test signup.yaml', '<span class="warn">⚠ step 7 flaky</span>', '▸ Re-running', '▸ Re-running']],
+  ['claude · cron', ['▸ Reading temporal/retry.go', '▸ Thinking about retries…', '<span class="warn">context 91% full</span>', '']],
+  ['claude · admin-ui', ['<span class="ask"> Allow git push? [y/n] </span>', 'waiting for input…', '', '']],
+  ['codex · podcast', ['▸ Fetching RSS', '<span class="err">ECONNRESET</span>', '▸ Retrying (3/5)', '']],
+  ['claude · support', ['▸ Drafting reply to user #4412', '▸ Looking up refund policy', '<span class="warn">no docs found</span>', '']],
+  ['claude · research', ['▸ WebSearch onboarding flows', '▸ Reading 11 sources', '▸ Summarizing…', '']],
+  ['codex · events', ['▸ Booking venue for Oct 12', '<span class="ask"> Approve $2,400 deposit? [y/n] </span>', 'waiting for input…', '']],
+  ['claude · design', ['▸ simctl io booted screenshot', '▸ Comparing screenshots', '<span class="err">✗ contrast 2.8:1</span>', '']],
+];
+chaosEl.innerHTML = TERM_LINES.map(([title]) => `<div class="term"><div class="tb"><i></i><i></i><i></i>&nbsp;${title}</div><pre></pre></div>`).join('');
+const termEls = [...chaosEl.querySelectorAll('.term')];
+function renderChaos(t){
+  const out = A('frame') - .15, gone = A('frame') + .8;
+  if (t > gone){ chaosEl.style.display = 'none'; return; }
+  chaosEl.style.display = 'grid';
+  const k = P(t, out, gone);
+  termEls.forEach((el, i) => {
+    const [, lines] = TERM_LINES[i];
+    const n = Math.floor(t*2.2 + i*.7);
+    const shown = []; for (let j = 0; j < 14; j++){ const L = lines[(n + j) % lines.length]; if (L !== undefined) shown.push(L); }
+    const pre = el.lastChild, h = shown.slice(0, 12).join('\n');
+    if (pre._h !== h){ pre.innerHTML = h; pre._h = h; }
+    const jitter = Math.sin(t*37 + i)*1.2;
+    el.style.transform = `translate(${jitter}px, ${-jitter}px) scale(${1 - .7*ease(k)}) rotate(${(i % 2 ? 1 : -1)*8*ease(k)}deg)`;
+    el.style.opacity = 1 - ease(k);
+  });
+  chaosEl.style.background = `rgba(11,11,16,${1 - ease(k)})`;
+}
+
+/* ---- campus ---- */
+const ROOMS = [
+  ['Parrot · engineering', 9, ['#4F8DF5','#EE77AE','#34B386'], true, false],
+  ['Support desk', 3, ['#9B7BEA'], false, false],
+  ['Events', 2, ['#9B7BEA','#F29D38'], false, false],
+  ['macbridge', 2, ['#4F8DF5'], false, false],
+  ['one-app', 2, ['#34B386','#4F8DF5'], false, false],
+  ['Cloud annex', 6, ['#35E0FF'], false, true],
+  ['Marketing', 2, ['#FF7A59'], false, false],
+  ['Finance', 2, ['#2EAD6B'], false, false],
+];
+function renderCampus(t){
+  const t0 = A('campus') + .9, t1 = A('close') - .1;
+  if (t < t0 || t > t1 + .4){ campusEl.innerHTML = ''; campusEl._s = ''; return; }
+  const op = Math.min(P(t, t0, t0 + .35), 1 - P(t, t1, t1 + .4));
+  const cards = ROOMS.map(([name, n, cols, ours, cloud], i) => {
+    const k = back(P(t, t0 + .15 + i*.12, t0 + .55 + i*.12));
+    const dots = Array.from({length:n}, (_, j) => `<circle cx="${70 + (j % 5)*34}" cy="${60 + Math.floor(j/5)*24 + (j % 2)*6}" r="7" fill="${cols[j % cols.length]}" stroke="#2A2536" stroke-width="2"/>`).join('');
+    return `<div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:6px;transform:scale(${k});${ours ? 'outline:5px solid #E7B12F;outline-offset:3px;' : ''}${cloud ? 'background:#E6FBFF;' : ''}">
+      <svg width="100%" height="130" viewBox="0 0 272 120"><polygon points="136,10 262,70 136,114 10,70" fill="${cloud ? '#BFEFFF' : '#D9B88A'}" stroke="#8E6C48" stroke-width="2"/>
+      ${cloud ? '<path d="M96 40 a18 18 0 0 1 34-8 a14 14 0 0 1 26 8 a12 12 0 0 1 -2 24 h-54 a12 12 0 0 1 -4 -24z" fill="#fff" stroke="#2A2536" stroke-width="2.5"/>' : '<polygon points="120,30 150,44 136,52 106,38" fill="#B8383C"/>'}${dots}</svg>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="h" style="font-weight:700;font-size:23px">${name}</span><span style="font:800 15px Nunito;color:#645B75">${n} ${cloud ? 'cloud desks' : 'workers'}</span></div>
+      ${cloud ? '<span style="font:800 14px Nunito;color:#0E7490">QM sandboxes · spin up on demand</span>' : ''}</div>`;
+  }).join('');
+  const s = `<div style="position:absolute;inset:0;background:#2B2740;opacity:${op}">
+    <div style="position:absolute;left:60px;top:44px;display:flex;align-items:baseline;gap:18px;color:#FFFCF6"><span class="h" style="font-weight:700;font-size:48px">Campus</span><span style="font:800 22px Nunito;color:#CFC8E6">every repo, every team, one QM org · one GBrain</span></div>
+    <div style="position:absolute;left:60px;right:60px;top:130px;display:grid;grid-template-columns:repeat(4,1fr);gap:26px">${cards}</div></div>`;
+  if (s !== campusEl._s){ campusEl.innerHTML = s; campusEl._s = s; }
+}
+
+/* ---- title ---- */
+function renderTitle(t){
+  const t0 = A('close') - .1;
+  if (t < t0){ if (titleEl._s){ titleEl.innerHTML = ''; titleEl._s = ''; } return; }
+  const k = back(P(t, t0 + .1, t0 + .7)), sub = P(t, t0 + 1.2, t0 + 1.6), chips = P(t, t0 + 2.4, t0 + 2.8), cred = P(t, t0 + 4.2, t0 + 4.6);
+  const s = `<div style="position:absolute;inset:0;background:radial-gradient(90% 90% at 50% 40%, #3C2F66 0%, #1A1430 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;opacity:${P(t, t0, t0 + .3)}">
+    <svg width="${150*k}" height="${130*k}" viewBox="0 0 34 30"><path d="M3 26 L3 8 L10 16 L17 3 L24 16 L31 8 L31 26 Z" fill="#E7B12F" stroke="#2A2536" stroke-width="2" stroke-linejoin="round"/></svg>
+    <div class="h" style="font-weight:700;font-size:200px;line-height:.9;color:#FFFCF6;transform:scale(${k});text-shadow:0 10px 0 #2A2536">Throne</div>
+    <div style="font:800 40px Nunito;color:#E9E1FF;opacity:${sub}">The front end for QM</div>
+    <div style="display:flex;gap:16px;opacity:${chips};transform:translateY(${(1 - chips)*20}px)">
+      <span class="chip" style="font-size:22px;background:#EEE8FF">${brainIcon(24)} Memory by GBrain</span>
+      <span class="chip" style="font-size:22px">Sessions, swarms, multiplayer by QM</span>
+      <span class="chip" style="font-size:22px">Every team, not just code</span></div>
+    <div style="font:800 22px Nunito;color:#B7AED0;margin-top:30px;opacity:${cred}">Erik Dahl · Bill Land · YC Own Your Intelligence Hackathon</div></div>`;
+  if (s !== titleEl._s){ titleEl.innerHTML = s; titleEl._s = s; }
+}
+
+/* ---- captions ---- */
+function capText(c){
+  let s = esc(c.text).replace(/G Brain/g, 'GBrain');
+  s = s.replace(/(GBrain|one brain|same brain)/g, '<span class="hb">$1</span>').replace(/(QM|Throne|proof|multiplayer|studio)/g, '<span class="hl">$1</span>');
+  const who = {erik:['Erik', '#E9E1FF'], maya:['Maya', '#FFD1E6'], bill:['Bill', '#BFF6FF']}[c.who];
+  return (who ? `<span class="who" style="background:${who[1]}">${who[0]}</span>` : '') + s;
+}
+function renderCaption(t){
+  const c = CUES.find(c => t >= c.t - .05 && t < c.t + c.dur + .3);
+  const s = c && c.id !== 'gbrain' ? `<div class="c">${capText(c)}</div>` : '';
+  if (s !== capEl._s){ capEl.innerHTML = s; capEl._s = s; }
+}
+
+/* ================= master render ================= */
+const pipWrap = $('#pipwrap'), pip = $('#pip');
+function renderAt(t){
+  const cam = camAt(t);
+  renderWorld(ctx, cam, t);
+  // world fades in during the reveal
+  cv.style.opacity = P(t, A('frame') + 1.9, A('frame') + 2.6);
+  // dim for GBrain slam
+  const slamOn = within(t, A('gbrain') - .1, A('gbrain') + 1.15);
+  slam.hidden = !slamOn;
+  if (slamOn){ const k = P(t, A('gbrain') - .1, A('gbrain') + .25); slam.firstChild.style.transform = `scale(${lerp(1.6, 1, eout(k))})`; slam.style.opacity = Math.min(k*2, 1 - P(t, A('gbrain') + .8, A('gbrain') + 1.15)); slam.style.background = `rgba(10,6,24,${.55*slam.style.opacity})`; }
+  // Bill's screen: picture in picture
+  const pipOn = false;
+  pipWrap.hidden = !pipOn;
+  if (pipOn){
+    const k = 1;
+    const b = ACT.bill || {x:6, y:4.5}, bp = iso(b.x, b.y, 30);
+    renderWorld(pip.getContext('2d'), [bp.x - 40, bp.y + 10, 2.3], t, {pip:true});
+    const l = $('#piplabel'); if (!l._s){ l.innerHTML = `${av('B', '#1F9E97', 30)} Bill’s screen · live`; l._s = 1; }
+  }
+  renderUI(t); renderChaos(t); renderCampus(t); renderTitle(t); renderCaption(t);
+  fadeEl.style.opacity = t < .25 ? 1 - P(t, 0, .25) : t > END - 1.2 ? P(t, END - 1.2, END) : 0;
+}
+window.renderAt = renderAt;
+window.fontsReady = document.fonts.ready.then(() => true);
+
+/* ---- preview playback (not used for capture) ---- */
+const stage = $('#stage');
+const fit = () => { const s = Math.min(innerWidth/1920, innerHeight/1080); stage.style.transform = `scale(${s})`; };
+if (!location.search.includes('capture')){
+  addEventListener('resize', fit); fit();
+  let t0 = null, playing = true, audio = null;
+  const params = new URLSearchParams(location.search); let start = +(params.get('t') || 0);
+  try { audio = new Audio('out/mix.m4a'); audio.currentTime = start; } catch {}
+  const tick = now => { if (t0 === null) t0 = now - start*1000; const t = (now - t0)/1000; if (playing) renderAt(Math.min(t, END)); requestAnimationFrame(tick); };
+  addEventListener('keydown', e => { if (e.key === ' ' && audio) { audio.paused ? audio.play().catch(() => {}) : audio.pause(); } });
+  document.fonts.ready.then(() => { audio && audio.play().catch(() => {}); requestAnimationFrame(tick); });
+} else { renderAt(0); }
+})();
+</script>
+</body>
+</html>

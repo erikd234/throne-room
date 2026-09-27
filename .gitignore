@@ -1,0 +1,12 @@
+node_modules/
+video/node_modules/
+video/out/
+video/real/
+video/audio/
+video/versions/
+video/shots/
+*.mp4
+*.webm
+*.wav
+*.mp3
+.DS_Store
