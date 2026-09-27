@@ -1304,7 +1304,7 @@ document.addEventListener('click', e => {
       const task = $('#task').value.trim(), repo = $('#repo').value.trim();
       const agent = ($('#modal input[name=agent]:checked') || {}).value || 'qm'; lastAgent = agent;
       if (!task) return fieldError('Tell them what to do.');
-      send({type:'hire', role, repo, task, agent, skills:[...pickedSkills]}) && closeModal(); break;
+      send({type:'hire', role, repo, task, agent, skills:[...pickedSkills], talkFirst:true}) && closeModal(); break;
     }
     case 'assign': {
       const task = $('#task').value.trim();
@@ -1370,6 +1370,7 @@ window.__throne = { openChat: id => openChat(id), state: () => S,
   on: (type, fn) => HOOKS.msg.push({type, fn}), onDraw: fn => HOOKS.draw.push(fn), onDrawTop: fn => HOOKS.drawTop.push(fn),
   get ctx(){ return ctx; }, get simT(){ return simT; }, get me(){ return ME; }, get bosses(){ return BOSS_LIST; },
   iso, rr, poly, box, esc, md, toast, send, openModal, closeModal, byId, DESKS, seatOf, sprites, G, KIND_COLOR, wallPt, recallBeam, onKnows, showPin, flyLesson, say, goTo, C, $ };
+Object.assign(window.__throne, { LINE_PHASES, TAG_TEXT, PHASE_TEXT, ICON, lineOrder, retarget, renderLine, renderPeek: f => renderPeek(f), get peek(){ return peekTarget; } });
 renderLine();
 connect();
 requestAnimationFrame(frame);
