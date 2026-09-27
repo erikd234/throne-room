@@ -1341,9 +1341,9 @@ function frameInner(now){
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#2B2740'; ctx.fillRect(0, 0, cw, ch);
   const v = view(); ctx.setTransform(dpr*v.s, 0, 0, dpr*v.s, dpr*v.ox, dpr*v.oy); ctx.lineJoin = 'round';
-  drawRoom(); drawWall();
+  drawRoom(); drawWall(); HOOKS.floor.forEach(fn => { try { fn(rdt); } catch (e) { console.error(e); } });
   const items = [];
-  DESKS.forEach(d => items.push({k:d.x + d.y + .9, f:() => drawDesk(d)}));
+  DESKS.forEach(d => items.push({k:d.x + d.y + .9, f:() => { const z = DESK_LIFT[d.i]; if (z) { ctx.save(); ctx.globalAlpha = Math.max(0, 1 - z/160); ctx.translate(0, -z); drawDesk(d); ctx.restore(); } else drawDesk(d); }}));
   DECOR.forEach(o => items.push({k:o.x + o.y + 1, f:() => drawDecor(o)}));
   items.push({k:VAULT.x + VAULT.y + 1.9, f:drawVault});
   items.push({k:4.2, f:drawThrone});
@@ -1365,9 +1365,9 @@ function frameInner(now){
   uiT -= rdt; if (uiT <= 0){ uiT = .5; renderPeek(false); }
 }
 // Feature modules (public/features/*.js) hook in here.
-const HOOKS = {msg:[], draw:[], drawTop:[], stats:[]};
+const HOOKS = {msg:[], draw:[], drawTop:[], stats:[], floor:[]}, DESK_LIFT = {};
 window.__throne = { openChat: id => openChat(id), state: () => S,
-  on: (type, fn) => HOOKS.msg.push({type, fn}), onDraw: fn => HOOKS.draw.push(fn), onDrawTop: fn => HOOKS.drawTop.push(fn),
+  on: (type, fn) => HOOKS.msg.push({type, fn}), onDraw: fn => HOOKS.draw.push(fn), onDrawTop: fn => HOOKS.drawTop.push(fn), onDrawFloor: fn => HOOKS.floor.push(fn), DESK_LIFT,
   get ctx(){ return ctx; }, get simT(){ return simT; }, get me(){ return ME; }, get bosses(){ return BOSS_LIST; },
   iso, rr, poly, box, esc, md, toast, send, openModal, closeModal, byId, DESKS, seatOf, sprites, G, KIND_COLOR, wallPt, recallBeam, onKnows, showPin, flyLesson, say, goTo, C, $ };
 renderLine();
