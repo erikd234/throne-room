@@ -1037,7 +1037,7 @@ function openHire(targetId){
 let brainOpen = false, brainBusy = false, gbrainOn = false;
 const brainChat = [];
 function openBrain(raw){
-  if (!raw && window.__throne?.openMemory) return window.__throne.openMemory();
+  if (raw !== true && window.__throne?.openMemory) return window.__throne.openMemory();
   brainOpen = true;
   openModal(`<h2>The brain</h2>
     <div class="role" id="brain-status"></div>
