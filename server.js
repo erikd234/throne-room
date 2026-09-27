@@ -141,7 +141,9 @@ function changed() {
     for (const s of sockets) s.readyState === 1 && s.send(msg);
   }, 120);
 }
+const EMIT_HOOKS = [];
 function emit(obj) {
+  for (const fn of EMIT_HOOKS) try { fn(obj); } catch {}
   const msg = JSON.stringify(obj);
   for (const s of sockets) s.readyState === 1 && s.send(msg);
 }
@@ -1518,7 +1520,7 @@ wss.on('connection', (ws, req) => {
 // Feature modules: features/*.js export default (api) => {}. They add actions, routes,
 // and connect-time payloads without touching this file.
 const FEATURE_FILES = () => { try { return fs.readdirSync(path.join(PUBLIC, 'features')).filter(f => f.endsWith('.js')).sort(); } catch { return []; } };
-const FEATURE_API = { TALK, startSession, setPhase, qmHeader, WORKER_ENV, query, state, ACTIONS, ROUTES, CONNECT, emit, changed, byId, BOSSES, BRAIN_CACHE, GRAPH, brainPut, brainSearch, recall, teach, chatPush, pushLog, bossOf, get QM() { return QM; }, get QM_UP() { return QM_UP; }, get GBRAIN() { return GBRAIN; }, BR, FAKE, HOME, ROOT, EXAMPLE };
+const FEATURE_API = { TALK, startSession, setPhase, qmHeader, WORKER_ENV, query, state, ACTIONS, ROUTES, CONNECT, emit, onEmit: fn => EMIT_HOOKS.push(fn), changed, byId, BOSSES, BRAIN_CACHE, GRAPH, brainPut, brainSearch, recall, teach, chatPush, pushLog, bossOf, get QM() { return QM; }, get QM_UP() { return QM_UP; }, get GBRAIN() { return GBRAIN; }, BR, FAKE, HOME, ROOT, EXAMPLE };
 for (const f of (() => { try { return fs.readdirSync(path.join(ROOT, 'features')).filter(f => f.endsWith('.js')).sort(); } catch { return []; } })()) {
   try { (await import(path.join(ROOT, 'features', f))).default(FEATURE_API); console.log(`Feature: ${f}`); } catch (e) { console.log(`Feature ${f} failed: ${e.message}`); }
 }
