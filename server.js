@@ -922,7 +922,7 @@ async function qmRun(w, prompt, ac) {
     const memory = await recall(w, input);
     const q = await QM.turn({ principal: boss.id, name: boss.name, threadRef: w.qmThread, text: input, header: qmHeader(w, memory), conversation: w.qmConversation });
     w.qmRunId = q.runId;
-    let failed = null;
+    let failed = null; const posted = [];
     await QM.stream(q.runId, boss.id, async ev => {
       if (ev.type === 'TOOL_CALL_START') {
         w.toolCount++;
@@ -932,12 +932,13 @@ async function qmRun(w, prompt, ac) {
         chatPush(w, { role: 'tool', text, tool: ev.toolCallName });
         emit({ type: 'activity', id: w.id, text });
         if (ev.toolCallName === 'memory') emit({ type: 'recall', id: w.id, slugs: ['qm-notebook'] });
+        if (ev.toolCallName === 'web' && ev.args?.action === 'post' && ev.args.text) posted.push(ev.args.text); // group (area) scopes reply by posting
       } else if (ev.type === 'TOOL_CALL_RESULT') {
         const start = execs.get(ev.toolCallId);
         if (start?.toolCallName === 'execute') proof.push({ kind: 'log', title: start.args?.purpose || 'Sandbox command', command: start.args?.command || '', output: String(ev.content || '').slice(-3000) });
       } else if (ev.type === 'CUSTOM' && ev.name === 'run') {
         const v = ev.value || {};
-        if (v.status === 'done' && v.result) { reply = v.result.reply || ''; w.sessionId = v.result.sessionId || w.sessionId; w.qmSessionUrl = v.result.adminUrl || w.qmSessionUrl; if (v.result.status && v.result.status !== 'ok') failed = `QM turn ended with ${v.result.status}`; }
+        if (v.status === 'done' && v.result) { reply = v.result.reply || ''; w.sessionId = v.result.sessionId || w.sessionId; w.qmSessionUrl = v.result.adminUrl || w.qmSessionUrl; if (!reply && posted.length) reply = posted.join('\n\n'); if (v.result.status && v.result.status !== 'ok' && !(v.result.status === 'silent' && posted.length)) failed = `QM turn ended with ${v.result.status}`; }
         else if (['failed', 'error', 'cancelled'].includes(v.status)) failed = v.error || `QM run ${v.status}`;
       }
     }, ac.signal);
