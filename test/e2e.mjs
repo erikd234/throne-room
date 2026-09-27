@@ -371,6 +371,24 @@ await check('skills: hire dialog lists personal and repo skills, and chosen skil
   await phase('Anders', 'done');
 });
 
+await check('areas: seeded department areas, + New area claims free desks, hires sit in their area', async () => {
+  assert(['engineering', 'support', 'marketing', 'events'].every(id => S.areas?.some(a => a.id === id && a.desks.length)), JSON.stringify(S.areas));
+  assert(!S.areas.some(a => a.id === 'finance'), 'finance is not seeded');
+  const n = events.length;
+  send({ type: 'newArea', name: 'Finance', color: '#2EAD6B' });
+  const ev = await until('areaCreated', () => events.slice(n).find(e => e.type === 'areaCreated'));
+  const fin = ev.area;
+  assert(fin.id === 'finance' && fin.desks.length && fin.color === '#2EAD6B', JSON.stringify(fin));
+  const taken = S.areas.filter(a => a.id !== 'finance').flatMap(a => a.desks);
+  assert(!fin.desks.some(d => taken.includes(d)), 'finance desks overlap');
+  for (const o of S.workers.filter(x => fin.desks.includes(x.desk))) send({ type: 'letGo', id: o.id });
+  await until('finance desks free', () => !S.workers.some(x => fin.desks.includes(x.desk)));
+  send({ type: 'hire', name: 'Penny', role: 'ops', repo: repoA, task: 'Close the books' });
+  const w = await until('Penny seated', () => W('Penny'));
+  assert(fin.desks.includes(w.desk) && w.area === 'finance', `Penny at desk ${w.desk} area ${w.area}`);
+  await phase('Penny', 'done');
+});
+
 await stopServer();
 const failed = results.filter(r => !r[0]);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

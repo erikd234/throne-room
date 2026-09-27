@@ -57,12 +57,13 @@ export default api => {
     let id = slug(name) || 'area', n = 2;
     while (state.areas.some(a => a.id === id)) id = `${slug(name)}-${n++}`;
     const used = new Set(state.workers.map(w => w.desk));
-    const desks = [...Array(DESK_COUNT).keys()].filter(i => !inArea.has(i) && !used.has(i)).slice(0, 4);
+    const desks = [...Array(DESK_COUNT).keys()].filter(i => !inArea.has(i)).sort((x, y) => used.has(x) - used.has(y)).slice(0, 4);
     if (!desks.length) throw new Error('No free desks left for a new area.');
     const a = { id, name, color, desks, qmProject: null, created: Date.now() };
     state.areas.push(a); reindex();
     await ensureProject(a);
     if (!api.FAKE && api.QM_UP && !a.qmProject) { state.areas.splice(state.areas.indexOf(a), 1); reindex(); throw new Error('QM could not create the area project.'); }
+    state.workers.forEach(w => { if (a.desks.includes(w.desk)) w.area = a.id; });
     changed();
     emit({ type: 'areaCreated', area: a });
   };
