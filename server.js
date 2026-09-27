@@ -327,7 +327,7 @@ const qmPing = async () => { const up = QM ? await QM.health() : false; if (up !
 qmPing(); setInterval(qmPing, 10000);
 
 /* ---------------- bosses (multiplayer) ---------------- */
-const BOSSES = { erik: { id: 'erik', name: 'Erik', color: '#E7B12F' }, bill: { id: 'bill', name: 'Bill Land', color: '#34B386' } };
+const BOSSES = { erik: { id: 'erik', name: 'Erik', color: '#E7B12F' }, bill: { id: 'bill', name: 'Bill Land', color: '#1F9E97' } };
 const online = new Map(); // ws -> { boss, viewing }
 function presence() {
   const by = new Map();
@@ -909,7 +909,6 @@ function describeQm(ev) {
   }
 }
 async function qmRun(w, prompt, ac) {
-  const boss = BOSSES[w.owner] || BOSSES.erik;
   const toText = c => typeof c === 'string' ? c : (typeof c?.claude === 'string' ? c.claude : (c?.claude || c || []).filter?.(b => b.type === 'text').map(b => b.text).join('\n') || '');
   const pending = [];
   w._input = { push: t => pending.push(toText(t)), close() {} };
@@ -917,6 +916,8 @@ async function qmRun(w, prompt, ac) {
   const execs = new Map(), proof = [];
   while (input) {
     turns++;
+    const boss = BOSSES[w.owner] || BOSSES.erik;
+    if (w._handoff) { input = `${w._handoff}\n\n${input}`; w._handoff = null; }
     const memory = await recall(w, input);
     const q = await QM.turn({ principal: boss.id, name: boss.name, threadRef: w.qmThread, text: input, header: qmHeader(w, memory) });
     w.qmRunId = q.runId;
