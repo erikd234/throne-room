@@ -6,11 +6,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import net from 'node:net';
 import WebSocket from 'ws';
 
 const ROOT = path.dirname(path.dirname(new URL(import.meta.url).pathname));
 const TMP = fs.realpathSync(fs.mkdtempSync(path.join(process.env.TMPDIR || os.tmpdir(), 'throne-real-')));
-const PORT = 4800 + Math.floor(Math.random() * 90);
+// Ask the OS for free ports so parallel servers and tests never collide.
+const freePort = () => new Promise(res => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); });
+const PORT = await freePort();
 const HOME = path.join(TMP, 'home');
 const AGENTS = (process.env.AGENTS || 'claude,codex').split(',');
 const STEP = 12 * 60 * 1000;
@@ -124,7 +127,7 @@ async function scenario(agent) {
   });
 
   await check('services: a server the agent starts itself is cataloged and stoppable', async () => {
-    const port = 4950 + (agent === 'claude' ? 1 : 2) + Math.floor(Math.random() * 40);
+    const port = await freePort();
     await ask(`Start \`python3 -m http.server ${port}\` from your worktree as a detached background process that keeps running after your command returns (for example: nohup python3 -m http.server ${port} > /tmp/throne-svc-${port}.log 2>&1 &). Then tell me the URL.`, []);
     const svc = await until('agent service in catalog', () => (S.services || []).find(s => s.workerId === W(name).id && s.ports.includes(port)), 30000);
     assert(svc.owner === 'agent', 'owner ' + svc.owner);
