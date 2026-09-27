@@ -263,34 +263,34 @@ const chatOf = n => W(n).chat || [];
 const lastAgent = n => chatOf(n).filter(m => m.role === 'agent').at(-1)?.text || '';
 
 await check('chat: text to an idle worker resumes the session, replies, and returns to idle', async () => {
-  send({ type: 'hire', name: 'Sophie', role: 'engineer', repo: repoA, task: 'Warm up' });
-  await phase('Sophie', 'done');
-  send({ type: 'markDone', id: W('Sophie').id });
-  await phase('Sophie', 'idle');
-  send({ type: 'chat', id: W('Sophie').id, text: 'How is the codebase organized?' });
-  await until('reply', () => lastAgent('Sophie') === 'Got it: How is the codebase organized?');
-  await phase('Sophie', 'idle');
-  assert(chatOf('Sophie').some(m => m.role === 'boss' && m.text === 'How is the codebase organized?'), 'boss message missing from chat');
-  assert(!W('Sophie').review, 'a chat turn must not create a review');
+  send({ type: 'hire', name: 'Talia', role: 'engineer', repo: repoA, task: 'Warm up' });
+  await phase('Talia', 'done');
+  send({ type: 'markDone', id: W('Talia').id });
+  await phase('Talia', 'idle');
+  send({ type: 'chat', id: W('Talia').id, text: 'How is the codebase organized?' });
+  await until('reply', () => lastAgent('Talia') === 'Got it: How is the codebase organized?');
+  await phase('Talia', 'idle');
+  assert(chatOf('Talia').some(m => m.role === 'boss' && m.text === 'How is the codebase organized?'), 'boss message missing from chat');
+  assert(!W('Talia').review, 'a chat turn must not create a review');
 });
 
 await check('chat: skills from the session are offered as slash commands and invoke by name', async () => {
-  const w = W('Sophie');
+  const w = W('Talia');
   assert(w.commands.includes('throne:present') && w.commands.includes('review'), 'commands ' + w.commands);
   assert(!w.commands.includes('clear'), 'terminal-only commands should be hidden');
   send({ type: 'chat', id: w.id, text: '/review focus on tests' });
-  await until('skill reply', () => lastAgent('Sophie') === 'Running the review skill.');
+  await until('skill reply', () => lastAgent('Talia') === 'Running the review skill.');
 });
 
 await check('chat: image and video uploads reach the agent and render in the chat', async () => {
   const img = await upload('screen shot.png', PNG), vid = await upload('flow.mov', Buffer.alloc(2048, 1));
   assert(img.kind === 'image' && vid.kind === 'video', 'kinds ' + img.kind + ' ' + vid.kind);
-  send({ type: 'chat', id: W('Sophie').id, text: 'Match this design', attachments: [img, vid] });
-  await until('attachment reply', () => /I can see 1 image\. I saved your video/.test(lastAgent('Sophie')));
-  const inbox = path.join(W('Sophie').worktree, '.throne-inbox');
+  send({ type: 'chat', id: W('Talia').id, text: 'Match this design', attachments: [img, vid] });
+  await until('attachment reply', () => /I can see 1 image\. I saved your video/.test(lastAgent('Talia')));
+  const inbox = path.join(W('Talia').worktree, '.throne-inbox');
   assert(fs.readdirSync(inbox).length === 2, 'files not copied into the worktree inbox');
-  assert(!sh(W('Sophie').worktree, 'status', '--porcelain').includes('.throne-inbox'), 'inbox should be git-excluded');
-  const bossMsg = chatOf('Sophie').filter(m => m.role === 'boss').at(-1);
+  assert(!sh(W('Talia').worktree, 'status', '--porcelain').includes('.throne-inbox'), 'inbox should be git-excluded');
+  const bossMsg = chatOf('Talia').filter(m => m.role === 'boss').at(-1);
   assert(bossMsg.media.length === 2, 'boss message media');
   for (const m of bossMsg.media) assert((await fetch(`http://127.0.0.1:${PORT}${m.src}`)).status === 200, 'upload not served: ' + m.src);
   const ranged = await fetch(`http://127.0.0.1:${PORT}${bossMsg.media[1].src}`, { headers: { range: 'bytes=0-99' } });
@@ -300,24 +300,34 @@ await check('chat: image and video uploads reach the agent and render in the cha
 await check('chat security: foreign-origin uploads and non-upload paths are refused', async () => {
   assert((await upload('x.png', PNG, 'https://evil.example')).status === 403, 'foreign origin upload accepted');
   const n = events.length;
-  send({ type: 'chat', id: W('Sophie').id, text: '', attachments: [{ path: '/etc/hosts', src: '/x', name: 'hosts' }] });
+  send({ type: 'chat', id: W('Talia').id, text: '', attachments: [{ path: '/etc/hosts', src: '/x', name: 'hosts' }] });
   await until('error', () => events.slice(n).some(e => e.type === 'error' && /Type a message/.test(e.message)));
-  assert(!fs.existsSync(path.join(W('Sophie').worktree, '.throne-inbox', 'hosts')), 'arbitrary file was copied');
+  assert(!fs.existsSync(path.join(W('Talia').worktree, '.throne-inbox', 'hosts')), 'arbitrary file was copied');
 });
 
 await check('chat: messages reach a worker mid-task and it still finishes', async () => {
-  send({ type: 'assign', id: W('Sophie').id, task: 'Longer task' });
-  await until('working', () => W('Sophie').phase === 'working');
-  send({ type: 'chat', id: W('Sophie').id, text: 'Also rename the helper' });
-  await until('mid-task reply', () => lastAgent('Sophie') === 'Got it: Also rename the helper' && W('Sophie').phase === 'working', 8000);
-  await phase('Sophie', 'done');
+  send({ type: 'assign', id: W('Talia').id, task: 'Longer task' });
+  await until('working', () => W('Talia').phase === 'working');
+  send({ type: 'chat', id: W('Talia').id, text: 'Also rename the helper' });
+  await until('mid-task reply', () => lastAgent('Talia') === 'Got it: Also rename the helper' && W('Talia').phase === 'working', 8000);
+  await phase('Talia', 'done');
 });
 
 await check('chat: talking to a worker waiting in line keeps their review', async () => {
-  send({ type: 'chat', id: W('Sophie').id, text: 'What did you change?' });
-  await until('reply', () => lastAgent('Sophie') === 'Got it: What did you change?');
-  await phase('Sophie', 'done');
-  assert(W('Sophie').review?.proof.length === 2, 'review lost');
+  send({ type: 'chat', id: W('Talia').id, text: 'What did you change?' });
+  await until('reply', () => lastAgent('Talia') === 'Got it: What did you change?');
+  await phase('Talia', 'done');
+  assert(W('Talia').review?.proof.length === 2, 'review lost');
+});
+
+await check('talk first: a talkFirst hire only plans until sent away, then works', async () => {
+  send({ type: 'hire', name: 'Talia', role: 'engineer', repo: repoB, task: 'Talk then build', talkFirst: true });
+  await until('talking reply', () => W('Talia')?.phase === 'talking' && W('Talia').chat.some(c => c.role === 'agent') && W('Talia').agreed?.goal);
+  send({ type: 'chat', id: W('Talia').id, text: 'Keep it small' });
+  await until('second reply', () => W('Talia').chat.filter(c => c.role === 'agent').length >= 2);
+  assert(W('Talia').phase === 'talking' && !W('Talia').toolCount, 'worked before being sent away');
+  send({ type: 'sendAway', id: W('Talia').id });
+  await phase('Talia', 'done');
 });
 
 await check('chat: typing in the chat answers a pending question', async () => {
